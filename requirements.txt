@@ -14,13 +14,18 @@ click-plugins==1.1.1.2
 click-repl==0.3.0
 cryptography==45.0.5
 defusedxml==0.7.1
+dj-database-url==3.0.1
 dj-rest-auth==5.0.2
 Django==5.2.4
 django-allauth==0.57.0
 django-cors-headers==4.3.1
+django-csp==4.0
+django-debug-toolbar==6.0.0
+django-jazzmin==3.0.1
 django-ratelimit==4.1.0
 djangorestframework==3.14.0
 djangorestframework_simplejwt==5.5.1
+dotenv==0.9.9
 drf-spectacular==0.28.0
 gemini-cli==0.2.5
 google-ai-generativelanguage==0.4.0
@@ -30,6 +35,7 @@ google-generativeai==0.3.2
 googleapis-common-protos==1.70.0
 grpcio==1.74.0
 grpcio-status==1.62.3
+gunicorn==23.0.0
 idna==3.10
 inflection==0.5.1
 jsonschema==4.25.0
@@ -46,6 +52,7 @@ platformdirs==4.3.8
 prompt_toolkit==3.0.51
 proto-plus==1.26.1
 protobuf==4.25.8
+psycopg2-binary==2.9.10
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
 pycparser==2.22
@@ -53,6 +60,7 @@ Pygments==2.19.2
 PyJWT==2.8.0
 python-dateutil==2.9.0.post0
 python-decouple==3.8
+python-dotenv==1.1.1
 python3-openid==3.2.0
 pytz==2025.2
 PyYAML==6.0.2
@@ -74,6 +82,4 @@ urllib3==2.5.0
 uuid6==2025.0.1
 vine==5.1.0
 wcwidth==0.2.13
-django-debug-toolbar~=6.0.0
-dotenv~=0.9.9
-python-dotenv~=1.1.1
+whitenoise==6.9.0
