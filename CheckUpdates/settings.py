@@ -408,11 +408,11 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
-            "format": "{levelname} {asctime} {module} {message}",  # noqa
+            "format": "{levelname} {asctime} {module} {message}",
             "style": "{",
         },
         "simple": {
-            "format": "{levelname} {message}",  # noqa
+            "format": "{levelname} {message}",
             "style": "{",
         },
     },
@@ -421,24 +421,21 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "simple",
         },
-        "file": {
-            "class": "logging.FileHandler",
-            "filename": os.path.join(BASE_DIR, "logs/django.log"),  # noqa
-            "formatter": "verbose",
-        },
+        # REMOVED the 'file' handler completely
     },
     "loggers": {
         "django": {
-            "handlers": ["console", "file"],
-            "level": "INFO",  # Set to DEBUG for more detailed logs
+            "handlers": ["console"],  # Removed 'file' handler
+            "level": "INFO",
         },
         "django.request": {
-            "handlers": ["file"],
+            # Changed to console handler since file handler is gone
+            "handlers": ["console"],
             "level": "ERROR",
             "propagate": False,
         },
         "rest_framework": {
-            "handlers": ["console", "file"],
+            "handlers": ["console"],  # Removed 'file' handler
             "level": "INFO",
             "propagate": True,
         },
