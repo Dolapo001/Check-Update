@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth.base_user import AbstractBaseUser
-from django.contrib.auth.models import AbstractUser, PermissionsMixin
+from django.contrib.auth.models import AbstractUser, PermissionsMixin, Group, Permission
 from django.db import models
 from django.utils import timezone
 import secrets
@@ -34,6 +34,22 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
+    groups = models.ManyToManyField(
+        Group,
+        verbose_name='groups',
+        blank=True,
+        help_text='The groups this user belongs to.',
+        related_name="coreuser_groups",
+        related_query_name="coreuser",
+    )
+    user_permissions = models.ManyToManyField(
+        Permission,
+        verbose_name='user permissions',
+        blank=True,
+        help_text='Specific permissions for this user.',
+        related_name="coreuser_permissions",
+        related_query_name="coreuser",
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -84,7 +100,7 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         self.save(update_fields=['email_verified', 'verification_token', 'verification_token_expires'])
 
 
-class PasswordResetToken(models.Model):
+class PasswordResetToken(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
     token = models.CharField(max_length=100, unique=True)
     expires_at = models.DateTimeField()

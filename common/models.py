@@ -1,11 +1,11 @@
 from django.db import models
-import uuid6
+import uuid
 
 
 class BaseModel(models.Model):
     id = models.UUIDField(
         primary_key=True,
-        default=uuid6.uuid7,
+        default=uuid.uuid4,
         editable=False,
         unique=True
     )
@@ -15,6 +15,9 @@ class BaseModel(models.Model):
     class Meta:
         abstract = True
         ordering = ("-id", "id")
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
 
 class BlacklistedToken(models.Model):

@@ -22,11 +22,11 @@ from django.conf.urls.static import static
 
 urlpatterns_v1 = [
     path('user-auth/', include('core.urls')),
-    #path('dashboard/', include('dashboard.urls')),
+   # path('dashboard/', include('admin_roles.urls')),
 ]
 
 urlpatterns = [
-    path('editor/', admin.site.urls),
+    path('admin-dashboard/', admin.site.urls),  # Use default admin site which now has Jazzmin
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),

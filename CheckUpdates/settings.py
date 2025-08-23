@@ -16,6 +16,7 @@ import dj_database_url
 from dotenv import load_dotenv
 import os
 from common.middleware import BlacklistMiddleware
+from .jazzmin import JAZZMIN_SETTINGS
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -32,6 +33,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECRET_KEY='django-insecure-jkyq(ct1@zyaa_z)_2!iw04n!4o_kvsc36d*sqh=5nj1efl4v#'
 
 DJANGO_APPS = [
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -42,6 +44,8 @@ DJANGO_APPS = [
 LOCAL_APPS = [
     "common.apps.CommonConfig",
     "core.apps.CoreConfig",
+    "admin_roles.apps.AdminRolesConfig",
+    "blog.apps.BlogConfig"
 ]
 
 THIRD_PARTY_APPS = [
@@ -67,6 +71,8 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "common.middleware.BlacklistMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "admin_roles.middleware.AdminAccessMiddleware",
+    "admin_roles.middleware.RoleBasedAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -99,6 +105,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {"anon": "100/day", "user": "1000/day"},
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
     "DEFAULT_PARSER_CLASSES": ("rest_framework.parsers.JSONParser",),
+
 }
 
 CORS_ALLOW_HEADERS = (
@@ -141,8 +148,8 @@ SPECTACULAR_SETTINGS = {
     "DISABLE_ERRORS_AND_WARNINGS": True,
 }
 
-AUTH_USER_MODEL = "core.User"
-
+#AUTH_USER_MODEL = "core.User"
+AUTH_USER_MODEL = 'admin_roles.AdminUser'
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),  # Adjust as needed
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # Adjust as needed
@@ -187,22 +194,21 @@ WSGI_APPLICATION = 'CheckUpdates.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 #
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-
-
 DATABASES = {
-    'default': dj_database_url.parse(
-        os.getenv('DATABASE_URL'),
-        conn_max_age=600,
-        ssl_require=True
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
+
+
+# DATABASES = {
+#     'default': dj_database_url.parse(
+#         os.getenv('DATABASE_URL'),
+#         conn_max_age=600,
+#         ssl_require=True
+#     )
+# }
 
 
 # Password validation
@@ -280,21 +286,14 @@ def str_to_bool(value):
 # Email configuration
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-EMAIL_USE_TLS = str_to_bool(os.getenv('EMAIL_USE_TLS', 'True'))
-EMAIL_USE_SSL = False  # Don't use SSL with TLS on port 587
-
-# Timeout settings (add these)
-EMAIL_TIMEOUT = 60
-
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-
-# Custom email sender details
-EMAIL_SENDER_NAME = os.getenv('EMAIL_SENDER_NAME', 'Check Update')
-EMAIL_SENDER_ADDRESS = os.getenv('EMAIL_SENDER_ADDRESS', 'info@checkupdate.ng')
+# settings.py
+ZEPTOMAIL_CONFIG = {
+    "SMTP_SERVER": os.getenv("ZEPTOMAIL_SMTP_SERVER", "smtp.zeptomail.com"),
+    "SMTP_PORT": int(os.getenv("ZEPTOMAIL_SMTP_PORT", 587)),
+    "USERNAME": os.getenv("ZEPTOMAIL_USERNAME", "emailapikey"),
+    "PASSWORD": os.getenv("ZEPTOMAIL_PASSWORD", ""),
+    "FROM_EMAIL": os.getenv("ZEPTOMAIL_FROM_EMAIL", "noreply@checkupdate.ng"),
+}
 
 # Other settings
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -309,98 +308,8 @@ FRONTEND_URL = "http://127.0.0.1:8000/api/v1/user-auth"
 SUPPORT_EMAIL = "info@checkupdate.ng"
 COMPANY_NAME = "Check Update"
 
-JAZZMIN_SETTINGS = {
-    "site_brand": " ADMIN",
-    # title of the window (Will default to current_admin_site.site_title if absent or None)
-    "site_title": " ADMIN",
-    # Title on the login screen (19 chars max) (defaults to current_admin_site.site_header if absent or None)
-    "site_header": "",
-    # Logo to use for your site, must be present in static files, used for brand on top left
-    "site_logo": "logo.png",
-    # Logo to use for your site, must be present in static files, used for login form logo (defaults to site_logo)
-    "login_logo": "logo.png",
-    # CSS classes that are applied to the logo above
-    "site_logo_classes": "img-circle",
-    # Relative path to a favicon for your site, will default to site_logo if absent (ideally 32x32 px)
-    "site_icon": "logo.png",
-    # Welcome text on the login screen
-    "welcome_sign": "Welcome to the  Admin Section",
-    # Copyright on the footer
-    "copyright": " Ltd 2023",
-    # The model admin to search from the search bar, search bar omitted if excluded
-    "search_model": [],
-    # Field name on user model that contains avatar ImageField/URLField/Charfield or a callable that receives the user
-    # "user_avatar": "avatar",
-    #############
-    # User Menu #
-    #############
-    # Additional links to include in the user menu on the top right ("app" url type is not allowed)
-    "usermenu_links": [{"name": " Platform"}, {"model": "auth.user"}],
-    #############
-    # Side Menu #
-    #############
-    # Whether to display the side menu
-    "show_sidebar": True,
-    # Whether to aut expand the menu
-    "navigation_expanded": True,
-    # Hide these apps when generating side menu e.g (auth)
-    "hide_apps": {
-        "authtoken": ["tokenproxy"],
-        "token_blacklist": ["blacklistedtoken", "outstandingtoken"],
-    },
-    # List of apps (and/or models) to base side menu ordering off of (does not need to contain all apps/models)
-    "order_with_respect_to": ["auth", "", ""],
-    "icons": {
-        "core.group": "fas fa-users",
-        "core.user": "fas fa-universal-access",
-        "core.profile": "fas fa-user",
-    },
-    # Icons that are used when one is not manually specified
-    "default_icon_parents": "fas fa-chevron-circle-right",
-    "default_icon_children": "fas fa-circle",
-    #############
-    # UI Tweaks #
-    #############
-    # "show_ui_builder": True,
-    "changeform_format": "horizontal_tabs",
-    # override change forms on a per modeladmin basis
-    "changeform_format_overrides": {
-        "auth.user": "collapsible",
-        "auth.group": "vertical_tabs",
-    },
-}
 
-JAZZMIN_UI_TWEAKS = {
-    "navbar_small_text": False,
-    "footer_small_text": False,
-    "body_small_text": False,
-    "brand_small_text": False,
-    "brand_colour": "navbar-info",
-    "accent": "accent-navy",
-    "navbar": "navbar-cyan navbar-dark",
-    "no_navbar_border": False,
-    "navbar_fixed": True,
-    "layout_boxed": False,
-    "footer_fixed": True,
-    "sidebar_fixed": True,
-    "sidebar": "sidebar-light-info",
-    "sidebar_nav_small_text": False,
-    "sidebar_disable_expand": False,
-    "sidebar_nav_child_indent": False,
-    "sidebar_nav_compact_style": False,
-    "sidebar_nav_legacy_style": False,
-    "sidebar_nav_flat_style": False,
-    "theme": "minty",
-    "dark_mode_theme": "darkly",
-    "button_classes": {
-        "primary": "btn-outline-primary",
-        "secondary": "btn-outline-secondary",
-        "info": "btn-info",
-        "warning": "btn-warning",
-        "danger": "btn-danger",
-        "success": "btn-outline-success",
-    },
-}
+JAZZMIN_SETTINGS = JAZZMIN_SETTINGS
 
 # Logging configuration
 LOGGING = {

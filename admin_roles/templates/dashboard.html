@@ -1,0 +1,116 @@
+{% extends "admin/base_site.html" %}
+{% load i18n jazzmin %}
+
+{% block content_title %}{% trans 'Admin Dashboard' %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    {% if content_stats %}
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-info">
+            <div class="inner">
+                <h3>{{ content_stats.draft }}</h3>
+                <p>{% trans 'Draft Content' %}</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-edit"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h3>{{ content_stats.submitted }}</h3>
+                <p>{% trans 'Pending Approval' %}</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-hourglass-half"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h3>{{ content_stats.published }}</h3>
+                <p>{% trans 'Published Content' %}</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-check"></i>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if user_count %}
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-primary">
+            <div class="inner">
+                <h3>{{ user_count }}</h3>
+                <p>{% trans 'Admin Users' %}</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-users"></i>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if recent_actions %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">{% trans 'Recent Activities' %}</h3>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>{% trans 'User' %}</th>
+                    <th>{% trans 'Action' %}</th>
+                    <th>{% trans 'Model' %}</th>
+                    <th>{% trans 'Time' %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for action in recent_actions %}
+                <tr>
+                    <td>{{ action.user }}</td>
+                    <td>{{ action.get_action_display }}</td>
+                    <td>{{ action.model }}</td>
+                    <td>{{ action.timestamp }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if recent_published %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h3 class="card-title">{% trans 'Recently Published Content' %}</h3>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>{% trans 'Title' %}</th>
+                    <th>{% trans 'Author' %}</th>
+                    <th>{% trans 'Published At' %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for content in recent_published %}
+                <tr>
+                    <td>{{ content.title }}</td>
+                    <td>{{ content.author }}</td>
+                    <td>{{ content.publish_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
