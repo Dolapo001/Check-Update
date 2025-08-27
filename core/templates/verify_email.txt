@@ -1,15 +1,15 @@
-Hello {{ user.first_name }},
+Verify Your Email Address - {{ company_name }}
 
-Thank you for registering with {{ company_name }}!
+Hi {{ user.get_full_name|default:user.username }},
 
-Please verify your email address by clicking the link below:
-{{ verification_link }}
+Welcome to {{ company_name }}! To complete your account setup, please verify your email address by clicking the link below.
 
-This link will expire in {{ expiration_hours }} hours.
+Verification Link: {{ verification_link }}
 
-If you didn't create an account, please ignore this email.
+This link expires in {{ expiration_hours }} hours.
 
-Best regards,
-{{ company_name }} Team
+If you didn't create an account with {{ company_name }}, you can safely ignore this email.
 
-Need help? Contact {{ support_email }}
+Need help? Contact our support team at {{ support_email }}
+
+© {% now "Y" %} {{ company_name }}. All rights reserved.

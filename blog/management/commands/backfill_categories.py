@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from apps.categories.models import Category, SubCategory
+from blog.models import Category, SubCategory
 
 
 class Command(BaseCommand):

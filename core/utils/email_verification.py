@@ -1,23 +1,17 @@
 import logging
 from urllib.parse import urljoin
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template import TemplateDoesNotExist
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils import timezone
 import secrets
 
-import smtplib
-import ssl
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
-
 logger = logging.getLogger(__name__)
 
 
-# Verification email functions
 def generate_verification_token():
+    """Generate a secure verification token"""
     return secrets.token_urlsafe(32)
 
 
@@ -31,8 +25,8 @@ def generate_verification_link(user):
     user.save(update_fields=['verification_token', 'verification_token_expires'])
 
     # Safely get FRONTEND_URL with fallback
-    base_url = getattr(settings, 'FRONTEND_URL', 'http://127.0.0.1:8000/api/v1/user-auth')
-    base_url = base_url.rstrip('/') if base_url else 'http://127.0.0.1:8000/api/v1/user-auth'
+    base_url = getattr(settings, 'FRONTEND_URL', 'http://127.0.0.1:8000')
+    base_url = base_url.rstrip('/') if base_url else 'http://127.0.0.1:8000'
 
     path = f'/verify-email?token={token}&email={user.email}'
     link = urljoin(base_url + '/', path.lstrip('/'))
@@ -44,8 +38,141 @@ def generate_verification_link(user):
     }
 
 
+def generate_password_reset_link(token, user):
+    """Generate password reset URL"""
+    base_url = getattr(settings, 'FRONTEND_URL', "http://127.0.0.1:8000")
+    base_url = base_url.rstrip('/') if base_url else 'http://127.0.0.1:8000'
 
-def send_zeptomail(subject, plain_message, recipient_list, html_message=None):
+    path = f'/reset-password?token={token}&email={user.email}'
+    return urljoin(base_url + '/', path.lstrip('/'))
+
+
+def send_email_with_template(subject, template_name, context, recipient_list, fail_silently=False):
+    """
+    Generic function to send emails using Django's email system
+    """
+    try:
+        # Render HTML template
+        try:
+            html_message = render_to_string(f'{template_name}.html', context)
+        except TemplateDoesNotExist:
+            html_message = None
+            logger.warning(f"HTML template {template_name}.html not found")
+
+        # Render text template
+        try:
+            plain_message = render_to_string(f'{template_name}.txt', context)
+        except TemplateDoesNotExist:
+            # Fallback plain text message
+            if 'verification_link' in context:
+                plain_message = f"Please verify your email: {context['verification_link']}"
+            elif 'reset_link' in context:
+                plain_message = f"Reset your password: {context['reset_link']}"
+            else:
+                plain_message = "Please check your email for further instructions."
+            logger.warning(f"Text template {template_name}.txt not found, using fallback")
+
+        # Create email message
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com')
+
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=from_email,
+            to=recipient_list
+        )
+
+        if html_message:
+            msg.attach_alternative(html_message, "text/html")
+
+        # Send email
+        connection = get_connection()
+        result = msg.send(fail_silently=fail_silently)
+
+        if result:
+            logger.info(f"Email sent successfully to {', '.join(recipient_list)}")
+            return True
+        else:
+            logger.error(f"Failed to send email to {', '.join(recipient_list)}")
+            return False
+
+    except Exception as e:
+        logger.error(f"Error sending email to {', '.join(recipient_list)}: {str(e)}", exc_info=True)
+        if not fail_silently:
+            raise
+        return False
+
+
+def send_verification_email(user, fail_silently=True):
+    """Send email verification email using Django's email system"""
+    try:
+        verification_data = generate_verification_link(user)
+
+        context = {
+            'user': user,
+            'verification_link': verification_data['link'],
+            'expiration_hours': 24,
+            'support_email': getattr(settings, 'SUPPORT_EMAIL', 'security@checkupdate.ng'),
+            'company_name': getattr(settings, 'COMPANY_NAME', 'CheckUpdate'),
+        }
+
+        success = send_email_with_template(
+            subject='Verify Your Email Address',
+            template_name='verify_email',
+            context=context,
+            recipient_list=[user.email],
+            fail_silently=fail_silently
+        )
+
+        return success
+
+    except Exception as e:
+        logger.error(f"Failed to send verification email to {user.email}: {str(e)}", exc_info=True)
+        if not fail_silently:
+            raise
+        return False
+
+
+def send_password_reset_email(user, token, fail_silently=True):
+    """Send password reset email using Django's email system"""
+    try:
+        reset_link = generate_password_reset_link(token, user)
+
+        context = {
+            'user': user,
+            'reset_link': reset_link,
+            'expiration_hours': 24,
+            'support_email': getattr(settings, 'SUPPORT_EMAIL', 'security@checkupdate.ng'),
+            'company_name': getattr(settings, 'COMPANY_NAME', 'CheckUpdate'),
+        }
+
+        success = send_email_with_template(
+            subject='Reset Your Password',
+            template_name='password_reset',
+            context=context,
+            recipient_list=[user.email],
+            fail_silently=fail_silently
+        )
+
+        return success
+
+    except Exception as e:
+        logger.error(f"Failed to send password reset email to {user.email}: {str(e)}", exc_info=True)
+        if not fail_silently:
+            raise
+        return False
+
+
+# Alternative: Keep your custom ZeptoMail implementation as backup
+def send_zeptomail_custom(subject, plain_message, recipient_list, html_message=None):
+    """
+    Custom ZeptoMail implementation (backup method)
+    """
+    import smtplib
+    import ssl
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
     config = getattr(settings, 'ZEPTOMAIL_CONFIG', {})
 
     msg = MIMEMultipart('alternative')
@@ -73,94 +200,22 @@ def send_zeptomail(subject, plain_message, recipient_list, html_message=None):
                 server.starttls()
                 server.login(config['USERNAME'], config['PASSWORD'])
                 server.send_message(msg)
+
+        logger.info(f"ZeptoMail custom email sent successfully to {', '.join(recipient_list)}")
         return True
     except Exception as e:
-        logger.error(f"ZeptoMail sending failed: {str(e)}", exc_info=True)
+        logger.error(f"ZeptoMail custom sending failed: {str(e)}", exc_info=True)
         return False
 
 
-def send_verification_email(user):
-    subject = 'Verify Your Email Address'
-    recipient = [user.email]
-
+def test_email_connection():
+    """Test email connection and configuration"""
     try:
-        verification_data = generate_verification_link(user)
-
-        context = {
-            'user': user,
-            'verification_link': verification_data['link'],
-            'expiration_hours': 24,
-            'support_email': getattr(settings, 'SUPPORT_EMAIL', 'support@example.com'),
-            'company_name': getattr(settings, 'COMPANY_NAME', 'CheckUpdate'),
-        }
-
-        try:
-            html_message = render_to_string('verify_email.html', context)
-            plain_message = render_to_string('verify_email.txt', context)
-        except TemplateDoesNotExist as e:
-            logger.critical(f"Missing email template: {e}")
-            html_message = None
-            plain_message = f"Verify your email: {verification_data['link']}"
-
-        # Use ZeptoMail to send the email
-        success = send_zeptomail(
-            subject=subject,
-            plain_message=plain_message,
-            recipient_list=recipient,
-            html_message=html_message
-        )
-
-        if success:
-            logger.info(f"Verification email sent successfully to {user.email}")
-        return success
-
+        connection = get_connection()
+        connection.open()
+        connection.close()
+        logger.info("Email connection test successful")
+        return True
     except Exception as e:
-        logger.error(f"Failed to send verification email to {user.email}: {str(e)}", exc_info=True)
+        logger.error(f"Email connection test failed: {str(e)}")
         return False
-
-
-def send_password_reset_email(user, token):
-    subject = 'Reset Your Password'
-    recipient = [user.email]
-
-    try:
-        reset_link = generate_password_reset_link(token, user)
-
-        context = {
-            'user': user,
-            'reset_link': reset_link,
-            'expiration_hours': 24,
-            'support_email': getattr(settings, 'SUPPORT_EMAIL', 'support@example.com'),
-            'company_name': getattr(settings, 'COMPANY_NAME', 'CheckUpdate'),
-        }
-
-        html_message = render_to_string('password_reset.html', context)
-        plain_message = render_to_string('password_reset.txt', context)
-
-        # Use ZeptoMail to send the email
-        success = send_zeptomail(
-            subject=subject,
-            plain_message=plain_message,
-            recipient_list=recipient,
-            html_message=html_message
-        )
-
-        if success:
-            logger.info(f"Password reset email sent to {user.email}")
-        return success
-
-    except Exception as e:
-        logger.error(f"Failed to send password reset email to {user.email}: {str(e)}", exc_info=True)
-        return False
-
-
-# Password reset email functions
-def generate_password_reset_link(token, user):
-    """Generate password reset URL"""
-    base_url = getattr(settings, 'FRONTEND_URL', "http://127.0.0.1:8000/api/v1/user-auth")
-    base_url = base_url.rstrip('/') if base_url else 'http://127.0.0.1:8000/api/v1/user-auth'
-
-    path = f'/reset-password?token={token}&email={user.email}'
-    return urljoin(base_url + '/', path.lstrip('/'))
-
-

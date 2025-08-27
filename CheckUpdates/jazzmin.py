@@ -1,11 +1,11 @@
 JAZZMIN_SETTINGS = {
     "site_title": "Content Management System",
-    "site_header": "Admin Portal",
-    "site_brand": "CMS Admin",
-    "site_logo": "logo.png",
-    "login_logo": "logo.png",
+    "site_header": "CheckUpdate Admin Panel",
+    "site_brand": "CheckUpdate Admin",
+    "site_logo": "img/logo.jpg",
+    "login_logo": "img/logo.jpg",
     "site_logo_classes": "img-circle",
-    "site_icon": "logo.png",
+    "site_icon": "img/logo.jpg",
     "welcome_sign": "Welcome to the Content Management System",
     "copyright": " Ltd 2025",
 

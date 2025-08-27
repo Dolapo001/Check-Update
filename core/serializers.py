@@ -64,6 +64,7 @@ class CustomLoginSerializer(serializers.Serializer):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
+            # Don't reveal if email exists for security reasons
             raise serializers.ValidationError("Invalid credentials.")
 
         user = authenticate(request=request, username=email, password=password)

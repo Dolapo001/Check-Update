@@ -27,8 +27,9 @@ load_dotenv()
 DEBUG = os.getenv('DEBUG')
 ALLOWED_HOSTS = ['*']
 
-SECRET_KEY = os.getenv('SECRET_KEY')
+#SECRET_KEY = os.getenv('SECRET_KEY')
 
+SECRET_KEY='django-insecure-jkyq(ct1@zyaa_z)_2!iw04n!4o_kvsc36d*sqh=5nj1efl4v#'
 
 # SECRET_KEY='django-insecure-jkyq(ct1@zyaa_z)_2!iw04n!4o_kvsc36d*sqh=5nj1efl4v#'
 
@@ -194,21 +195,21 @@ WSGI_APPLICATION = 'CheckUpdates.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 #
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
-
 # DATABASES = {
-#     'default': dj_database_url.parse(
-#         os.getenv('DATABASE_URL'),
-#         conn_max_age=600,
-#         ssl_require=True
-#     )
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
 # }
+
+
+DATABASES = {
+    'default': dj_database_url.parse(
+        os.getenv('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=True
+    )
+}
 
 
 # Password validation
@@ -250,15 +251,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
-
-STATICFILES_DIRS = [BASE_DIR / "assets"]  # noqa
-
-STATIC_ROOT = BASE_DIR / "staticfiles"
-
-MEDIA_URL = "media/"
-
-MEDIA_ROOT = BASE_DIR / "static/media"
+# Make sure these settings are properly configured
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    BASE_DIR / "static",  # or wherever your static files are
+]
+STATIC_ROOT = BASE_DIR / "staticfiles"  # for production
 
 STORAGES = {
     "default": {
@@ -284,15 +282,24 @@ def str_to_bool(value):
 
 
 # Email configuration
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# settings.py - Fix email configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv("ZEPTOMAIL_SMTP_SERVER", "smtp.zeptomail.com")
+EMAIL_PORT = int(os.getenv("ZEPTOMAIL_SMTP_PORT", 587))
+EMAIL_HOST_USER = os.getenv("ZEPTOMAIL_USERNAME", "emailapikey")
+EMAIL_HOST_PASSWORD = os.getenv("ZEPTOMAIL_PASSWORD", "")
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False  # Since you're using port 587 with TLS
+DEFAULT_FROM_EMAIL = os.getenv("ZEPTOMAIL_FROM_EMAIL", "security@checkupdate.ng")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-# settings.py
+# ZeptoMail specific configuration (for custom implementation)
 ZEPTOMAIL_CONFIG = {
-    "SMTP_SERVER": os.getenv("ZEPTOMAIL_SMTP_SERVER", "smtp.zeptomail.com"),
-    "SMTP_PORT": int(os.getenv("ZEPTOMAIL_SMTP_PORT", 587)),
-    "USERNAME": os.getenv("ZEPTOMAIL_USERNAME", "emailapikey"),
-    "PASSWORD": os.getenv("ZEPTOMAIL_PASSWORD", ""),
-    "FROM_EMAIL": os.getenv("ZEPTOMAIL_FROM_EMAIL", "noreply@checkupdate.ng"),
+    'SMTP_SERVER': EMAIL_HOST,
+    'SMTP_PORT': EMAIL_PORT,
+    'USERNAME': EMAIL_HOST_USER,
+    'PASSWORD': EMAIL_HOST_PASSWORD,
+    'FROM_EMAIL': DEFAULT_FROM_EMAIL,
 }
 
 # Other settings

@@ -25,8 +25,6 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     verification_token_expires = models.DateTimeField(blank=True, null=True)
 
     # Security fields
-    failed_login_attempts = models.IntegerField(default=0)
-    account_locked_until = models.DateTimeField(blank=True, null=True)
     last_login_ip = models.GenericIPAddressField(blank=True, null=True)
     google_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
 
@@ -69,20 +67,6 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
 
     def get_short_name(self):
         return self.first_name
-
-    def is_account_locked(self):
-        """Check if account is currently locked"""
-        return self.account_locked_until and timezone.now() < self.account_locked_until
-
-    def increment_failed_login(self):
-        """Increment failed login counter and lock account if threshold reached"""
-        self.failed_login_attempts += 1
-
-        if self.failed_login_attempts >= settings.MAX_LOGIN_ATTEMPTS:
-            lock_period = settings.ACCOUNT_LOCK_TIME
-            self.account_locked_until = timezone.now() + timezone.timedelta(minutes=lock_period)
-
-        self.save(update_fields=['failed_login_attempts', 'account_locked_until'])
 
     def is_verification_code_valid(self, code):
         """Check if verification code is valid and not expired"""
