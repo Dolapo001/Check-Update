@@ -252,11 +252,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 # Make sure these settings are properly configured
+# Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
-    BASE_DIR / "static",  # or wherever your static files are
+    BASE_DIR / 'static',
 ]
-STATIC_ROOT = BASE_DIR / "staticfiles"  # for production
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STORAGES = {
     "default": {

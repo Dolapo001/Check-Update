@@ -228,6 +228,12 @@ class ContentAdmin(CustomAdminMixin, admin.ModelAdmin):
                 details=f"Content '{content.title}' set to draft"
             )
 
+    def save_model(self, request, obj, form, change):
+        # On create, ensure author is set from the request user
+        if not change and not obj.author_id:
+            obj.author = request.user
+        super().save_model(request, obj, form, change)
+
 
 @admin.register(AdBanner)
 class AdBannerAdmin(CustomAdminMixin, admin.ModelAdmin):

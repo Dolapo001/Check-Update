@@ -4,6 +4,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.utils.translation import gettext_lazy as _
 from common.models import BaseModel
 
+
 class Role(BaseModel):
     ADMIN = 'admin'
     EDITOR = 'editor'
@@ -66,6 +67,7 @@ class AdminUser(AbstractUser):
         related_name='users',
         verbose_name=_("System Role")
     )
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     is_suspended = models.BooleanField(
         default=False,
         verbose_name=_("Suspended Status")
