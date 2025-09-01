@@ -13,6 +13,8 @@ pip install -r requirements.txt
 python manage.py collectstatic --noinput
 
 python manage.py backfill_categories
+python manage.py setup_roles
+python manage.py backfill_content
 
 # Apply migrations
 python manage.py migrate

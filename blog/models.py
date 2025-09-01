@@ -4,6 +4,7 @@ from django.utils.text import slugify
 from common.models import BaseModel
 from core.models import User
 
+from django.conf import settings
 
 class Category(BaseModel):
     name = models.CharField(max_length=100, unique=True)
@@ -53,11 +54,11 @@ class News(BaseModel):
     media = models.FileField(upload_to='news_media/', blank=True, null=True)
     media_type = models.CharField(max_length=10, choices=MEDIA_TYPE_CHOICES, default='none')
     subcategory = models.ForeignKey(SubCategory, on_delete=models.CASCADE, related_name='news')
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)  # Use AUTH_USER_MODEL
     is_foreign = models.BooleanField(default=False)
     is_top_story = models.BooleanField(default=False)
     views = models.PositiveIntegerField(default=0)
-    bookmarks = models.ManyToManyField(User, related_name='bookmarked_news', blank=True)
+    bookmarks = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='bookmarked_news', blank=True)  # Use AUTH_USER_MODEL
     from blog.managers import NewsManager
     objects = NewsManager()
 

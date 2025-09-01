@@ -112,31 +112,30 @@ REST_FRAMEWORK = {
 CORS_ALLOW_HEADERS = (
     "accept",
     "accept-language",
-    "access-control-request-headers",
-    "access-control-request-method",
     "authorization",
+    "content-type",
     "content-disposition",
     "content-encoding",
     "content-length",
-    "content-type",
     "cookie",
     "host",
     "origin",
     "referer",
     "user-agent",
-    "x-forwarded-for",
+    "x-csrftoken",
     "x-requested-with",
+    "x-forwarded-for",
+    "access-control-request-headers",
+    "access-control-request-method",
 )
 
-# CORS_ALLOW_ORIGINS = [
-#     "http://localhost:3000",
-#     "http://127.0.0.1:3000",
-#     "http://localhost:5173"
-# ]
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+]
 
-CORS_ALLOW_ALL_ORIGINS = True
-
-CORS_ALLOW_CREDENTIALS = True
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "CheckUpdate API",
@@ -150,8 +149,8 @@ SPECTACULAR_SETTINGS = {
     "DISABLE_ERRORS_AND_WARNINGS": True,
 }
 
-#AUTH_USER_MODEL = "core.User"
-AUTH_USER_MODEL = 'admin_roles.AdminUser'
+AUTH_USER_MODEL = "core.User"
+#AUTH_USER_MODEL = 'admin_roles.AdminUser'
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),  # Adjust as needed
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # Adjust as needed
