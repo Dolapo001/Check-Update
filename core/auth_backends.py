@@ -1,3 +1,4 @@
+# core/auth_backends.py
 from django.contrib.auth.backends import BaseBackend
 from django.contrib.auth import get_user_model
 
@@ -5,16 +6,22 @@ User = get_user_model()
 
 
 class EmailAuthBackend(BaseBackend):
+    """
+    Authenticate strictly by email + password.
+    Django's `authenticate` uses the 'username' arg name, so we accept it
+    but treat it as an email address.
+    """
     def authenticate(self, request, username=None, password=None, **kwargs):
-        if not username or not password:
+        email = username or kwargs.get("email")
+        if not email or not password:
             return None
 
-        user = (
-            User.objects.filter(email=username).first()
-            or User.objects.filter(phone=username).first()
-        )
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return None
 
-        if user and user.check_password(password):
+        if user.check_password(password) and getattr(user, "is_active", True):
             return user
         return None
 

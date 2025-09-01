@@ -61,13 +61,8 @@ class CustomLoginSerializer(serializers.Serializer):
         if not (email and password):
             raise serializers.ValidationError("Must include email and password.")
 
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            # Don't reveal if email exists for security reasons
-            raise serializers.ValidationError("Invalid credentials.")
-
-        user = authenticate(request=request, username=email, password=password)
+        # Authenticate using the backend
+        user = authenticate(request, email=email, password=password)
         if not user:
             raise serializers.ValidationError("Invalid credentials.")
 
