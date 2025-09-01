@@ -27,8 +27,7 @@ urlpatterns_v1 = [
 ]
 
 urlpatterns = [
-    path('admin-dashboard/', admin.site.urls),  # Use default admin site which now has Jazzmin
-    path('', lambda request: redirect('admin:index'), name='dashboard'),
+    path('admin-dashboard/', admin.site.urls),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
