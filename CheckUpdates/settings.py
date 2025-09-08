@@ -310,7 +310,7 @@ SESSION_COOKIE_NAME = 'checkupdate_session'
 SESSION_COOKIE_AGE = 3600
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
-FRONTEND_URL = "http://127.0.0.1:8000/api/v1/user-auth"
+FRONTEND_URL = "http://127.0.0.1:3000"
 
 #FRONTEND_URL = os.getenv('FRONTEND_URL')
 SUPPORT_EMAIL = "info@checkupdate.ng"

@@ -25,8 +25,8 @@ def generate_verification_link(user):
     user.save(update_fields=['verification_token', 'verification_token_expires'])
 
     # Safely get FRONTEND_URL with fallback
-    base_url = getattr(settings, 'FRONTEND_URL', 'http://127.0.0.1:8000')
-    base_url = base_url.rstrip('/') if base_url else 'http://127.0.0.1:8000'
+    base_url = getattr(settings, 'FRONTEND_URL', 'http://127.0.0.1:3000')
+    base_url = base_url.rstrip('/') if base_url else 'http://127.0.0.1:3000'
 
     path = f'/verify-email?token={token}&email={user.email}'
     link = urljoin(base_url + '/', path.lstrip('/'))
@@ -40,8 +40,8 @@ def generate_verification_link(user):
 
 def generate_password_reset_link(token, user):
     """Generate password reset URL"""
-    base_url = getattr(settings, 'FRONTEND_URL', "http://127.0.0.1:8000")
-    base_url = base_url.rstrip('/') if base_url else 'http://127.0.0.1:8000'
+    base_url = getattr(settings, 'FRONTEND_URL', "http://127.0.0.1:3000")
+    base_url = base_url.rstrip('/') if base_url else 'http://127.0.0.1:3000'
 
     path = f'/reset-password?token={token}&email={user.email}'
     return urljoin(base_url + '/', path.lstrip('/'))
