@@ -161,8 +161,8 @@ class ActionLogAdmin(CustomAdminMixin, admin.ModelAdmin):
 
 @admin.register(Content)
 class ContentAdmin(CustomAdminMixin, admin.ModelAdmin):
-    list_display = ('title', 'author', 'status', 'publish_date', 'created_at')
-    list_filter = ('status', 'author', 'created_at')
+    list_display = ('title', 'author', 'status', 'publish_date', 'created')
+    list_filter = ('status', 'author', 'created')
     search_fields = ('title', 'content')
     actions = ['approve_content', 'publish_content', 'set_as_draft']
     fieldsets = (
@@ -250,8 +250,8 @@ class AdBannerAdmin(CustomAdminMixin, admin.ModelAdmin):
 
 @admin.register(Comment)
 class CommentAdmin(CustomAdminMixin, admin.ModelAdmin):
-    list_display = ('content', 'author', 'is_approved', 'created_at', 'flagged')
-    list_filter = ('is_approved', 'flagged', 'created_at')
+    list_display = ('content', 'author', 'is_approved', 'created', 'flagged')
+    list_filter = ('is_approved', 'flagged', 'created')
     search_fields = ('author', 'text')
     actions = ['approve_comments', 'flag_comments']
 
@@ -284,7 +284,7 @@ class CommentAdmin(CustomAdminMixin, admin.ModelAdmin):
 
 @admin.register(SEOData)
 class SEODataAdmin(CustomAdminMixin, admin.ModelAdmin):
-    list_display = ('content', 'created_at', 'updated_at')
+    list_display = ('content', 'created', 'updated_at')
     search_fields = ('content__title', 'meta_title', 'keywords')
 
     def get_readonly_fields(self, request, obj=None):
