@@ -181,11 +181,27 @@ class CategoryPageView(BaseAPIView):
             return self.error_response("Failed to fetch category page")
 
 
+from rest_framework.pagination import PageNumberPagination
+
+
+class CustomPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class SubCategoryPageView(BaseAPIView):
     def get(self, request, subcategory_id):
         try:
             subcategory = get_object_or_404(SubCategory, id=subcategory_id)
 
+            # Get paginated excerpt news
+            excerpt_news = News.objects.get_excerpt(subcategory=subcategory)
+            paginator = CustomPagination()
+            paginated_excerpt_news = paginator.paginate_queryset(excerpt_news, request)
+            excerpt_serializer = NewsSerializer(paginated_excerpt_news, many=True, context={'request': request})
+
+            # Get other data (not paginated)
             top_news = News.objects.get_most_viewed(subcategory=subcategory, limit=5)
             hot_stories = News.objects.get_hot_stories_this_week(subcategory=subcategory)
             foreign_news = News.objects.get_foreign_news(subcategory=subcategory, is_foreign=True)
@@ -193,10 +209,20 @@ class SubCategoryPageView(BaseAPIView):
             ads = Advertisement.objects.filter(
                 subcategory=subcategory,
                 is_active=True
-            )[:2]  # Get 2 active ads for this subcategory
+            )[:2]
 
             data = {
                 "subcategory": SubCategorySerializer(subcategory).data,
+                "excerpt_news": {
+                    "results": excerpt_serializer.data,
+                    "pagination": {
+                        "count": paginator.page.paginator.count,
+                        "next": paginator.get_next_link(),
+                        "previous": paginator.get_previous_link(),
+                        "current_page": paginator.page.number,
+                        "total_pages": paginator.page.paginator.num_pages,
+                    }
+                },
                 "top_news": NewsSerializer(top_news, many=True, context={'request': request}).data,
                 "hot_stories": NewsSerializer(hot_stories, many=True, context={'request': request}).data,
                 "foreign_news": NewsSerializer(foreign_news, many=True, context={'request': request}).data,

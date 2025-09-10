@@ -57,3 +57,9 @@ class NewsManager(models.Manager):
         if subcategory:
             queryset = queryset.filter(subcategory=subcategory)
         return queryset.order_by('-views')[:limit]
+
+    def get_excerpt(self, subcategory=None):
+        queryset = self.all()
+        if subcategory:
+            queryset = queryset.filter(subcategory=subcategory)
+        return queryset

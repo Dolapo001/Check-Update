@@ -16,7 +16,7 @@ cryptography==45.0.5
 defusedxml==0.7.1
 dj-database-url==3.0.1
 dj-rest-auth==5.0.2
-Django==5.2.4
+Django~=5.2.6
 django-allauth==0.57.0
 django-cors-headers==4.3.1
 django-csp==4.0
@@ -83,3 +83,6 @@ uuid6==2025.0.1
 vine==5.1.0
 wcwidth==0.2.13
 whitenoise==6.9.0
+
+beautifulsoup4~=4.13.5
+Faker~=37.6.0

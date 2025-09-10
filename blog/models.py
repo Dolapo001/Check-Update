@@ -5,6 +5,8 @@ from common.models import BaseModel
 from core.models import User
 
 from django.conf import settings
+from bs4 import BeautifulSoup
+
 
 class Category(BaseModel):
     name = models.CharField(max_length=100, unique=True)
@@ -51,14 +53,15 @@ class News(BaseModel):
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True)
     content = models.TextField()
+    excerpt = models.TextField(blank=True)  # Add this line
     media = models.FileField(upload_to='news_media/', blank=True, null=True)
     media_type = models.CharField(max_length=10, choices=MEDIA_TYPE_CHOICES, default='none')
     subcategory = models.ForeignKey(SubCategory, on_delete=models.CASCADE, related_name='news')
-    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)  # Use AUTH_USER_MODEL
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     is_foreign = models.BooleanField(default=False)
     is_top_story = models.BooleanField(default=False)
     views = models.PositiveIntegerField(default=0)
-    bookmarks = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='bookmarked_news', blank=True)  # Use AUTH_USER_MODEL
+    bookmarks = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='bookmarked_news', blank=True)
     from blog.managers import NewsManager
     objects = NewsManager()
 
@@ -74,6 +77,13 @@ class News(BaseModel):
             # Ensure slug is unique
             if News.objects.filter(slug=self.slug).exists():
                 self.slug = f"{self.slug}-{self.id}" if self.id else f"{self.slug}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+
+        # Auto-generate excerpt if not provided
+        if not self.excerpt and self.content:
+            # Strip HTML tags and get first 150 characters
+            clean_content = ''.join(BeautifulSoup(self.content, "html.parser").findAll(text=True))
+            self.excerpt = clean_content[:150] + '...' if len(clean_content) > 150 else clean_content
+
         super().save(*args, **kwargs)
 
     def increment_views(self):
