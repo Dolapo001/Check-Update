@@ -62,4 +62,4 @@ class NewsManager(models.Manager):
         queryset = self.all()
         if subcategory:
             queryset = queryset.filter(subcategory=subcategory)
-        return queryset
+        return queryset.order_by('-created_at')

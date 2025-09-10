@@ -19,11 +19,11 @@ class CategorySerializer(serializers.ModelSerializer):
 class NewsSerializer(serializers.ModelSerializer):
     subcategory = serializers.StringRelatedField()
     is_bookmarked = serializers.SerializerMethodField()
-    excerpt = serializers.CharField(read_only=True)
 
     class Meta:
         model = News
-        exclude = ('bookmarks', 'excerpt')
+        exclude = ('bookmarks',)
+        read_only_fields = ('excerpt',)  # Add this line
 
     def get_is_bookmarked(self, obj):
         request = self.context.get('request')

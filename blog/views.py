@@ -195,7 +195,7 @@ class SubCategoryPageView(BaseAPIView):
         try:
             subcategory = get_object_or_404(SubCategory, id=subcategory_id)
 
-            # Get paginated excerpt news
+            # Get paginated excerpt news with proper ordering
             excerpt_news = News.objects.get_excerpt(subcategory=subcategory)
             paginator = CustomPagination()
             paginated_excerpt_news = paginator.paginate_queryset(excerpt_news, request)
