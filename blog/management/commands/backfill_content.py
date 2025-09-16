@@ -28,10 +28,21 @@ class Command(BaseCommand):
         media_types = ['image', 'video', 'none']
         ad_positions = ['header', 'sidebar', 'footer', 'in_content']
 
+        # Sample image URLs for news articles
+        sample_images = [
+            'https://images.unsplash.com/photo-1504711434969-e33886168f5c',
+            'https://images.unsplash.com/photo-1495020689067-958852a7765e',
+            'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b',
+            'https://images.unsplash.com/photo-1563986768609-322da13575f3',
+            'https://images.unsplash.com/photo-1546422904-90eab23c3d7e',
+        ]
+
         # Create news articles
         for subcategory in SubCategory.objects.all():
             for i in range(5):  # Create 5 news per subcategory
                 title = fake.sentence(nb_words=8)
+
+                # Create news instance
                 news = News(
                     title=title,
                     content='\n\n'.join(fake.paragraphs(nb=10)),
@@ -40,11 +51,20 @@ class Command(BaseCommand):
                     author=user,
                     is_foreign=random.choice([True, False]),
                     is_top_story=random.choice([True, False]),
-                    views=random.randint(0, 1000)
+                    views=random.randint(0, 10000)  # Increased view range
                 )
+
+                # Add image if media_type is 'image'
+                if news.media_type == 'image':
+                    news.media_url = random.choice(sample_images)
+
+                # Make some articles more popular
+                if news.is_top_story:
+                    news.views = random.randint(5000, 50000)  # Top stories get more views
+
                 news.save()
                 self.stdout.write(
-                    self.style.SUCCESS(f'Created news: {title} for {subcategory.name}')
+                    self.style.SUCCESS(f'Created news: {title} for {subcategory.name} with {news.views} views')
                 )
 
         # Create advertisements
