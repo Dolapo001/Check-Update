@@ -127,7 +127,12 @@ CORS_ALLOW_HEADERS = (
     "x-forwarded-for",
     "access-control-request-headers",
     "access-control-request-method",
+    "if-none-match",
 )
+
+CORS_EXPOSE_HEADERS = [
+    "etag",
+]
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
