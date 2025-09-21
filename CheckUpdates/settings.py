@@ -13,6 +13,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
+from corsheaders.defaults import default_headers
 from dotenv import load_dotenv
 import os
 from common.middleware import BlacklistMiddleware
@@ -109,7 +110,16 @@ REST_FRAMEWORK = {
 
 }
 
-CORS_ALLOW_HEADERS = (
+
+# expose headers you want front-end JS to be able to read
+CORS_EXPOSE_HEADERS = [
+    "etag",
+    "cache-control",
+]
+
+CORS_ALLOW_HEADERS =  list(default_headers) + [
+    "if-none-match",
+    "cache-control",
     "accept",
     "accept-language",
     "authorization",
@@ -128,11 +138,8 @@ CORS_ALLOW_HEADERS = (
     "access-control-request-headers",
     "access-control-request-method",
     "if-none-match",
-)
-
-CORS_EXPOSE_HEADERS = [
-    "etag",
 ]
+
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
