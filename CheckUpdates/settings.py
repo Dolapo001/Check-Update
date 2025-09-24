@@ -226,9 +226,18 @@ DATABASES['default']['CONN_HEALTH_CHECKS'] = True
 DATABASES['default']['OPTIONS'] = {"application_name": "check-update-vercel"}
 
 CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))
-REDIS_URL = os.getenv("REDIS_URL")
+REDIS_URL = os.getenv("REDIS_URL")  # may be None in prod
+
+def locmem_cache():
+    return {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "unique-checkupdate-fallback",
+        }
+    }
 
 if REDIS_URL:
+    # try to use redis, but fall back if it fails to connect
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
@@ -237,13 +246,18 @@ if REDIS_URL:
             "KEY_PREFIX": "check_update",
         }
     }
+
+    # optional: sanity check so app doesn't crash at import-time with unreachable host
+    try:
+        import redis as _redis
+        _client = _redis.from_url(REDIS_URL, socket_connect_timeout=2)
+        _client.ping()
+    except Exception:
+        # couldn't connect — fallback to locmem
+        CACHES = locmem_cache()
 else:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "unique-checkupdate-fallback",
-        }
-    }
+    CACHES = locmem_cache()
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
