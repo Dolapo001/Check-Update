@@ -213,17 +213,29 @@ WSGI_APPLICATION = 'CheckUpdates.wsgi.application'
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-
 DATABASES = {
-    'default': dj_database_url.parse(
-        os.getenv("DATABASE_URL"),
-        conn_max_age=600,      # reuse connection for 10 mins
+    "default": dj_database_url.parse(
+        os.getenv("DATABASE_URL"),   # make sure this is the POOLER URL (port 6543)
+        conn_max_age=0,              # important for serverless / PgBouncer transaction pooling
         ssl_require=True
     )
 }
 
-# Add this line for safety
+# health checks + identify connections easily
 DATABASES['default']['CONN_HEALTH_CHECKS'] = True
+DATABASES['default']['OPTIONS'] = {"application_name": "check-update-vercel"}
+
+CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))
+REDIS_URL = os.getenv("REDIS_URL")  # local fallback for dev
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        "KEY_PREFIX": "check_update",
+    }
+}
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
