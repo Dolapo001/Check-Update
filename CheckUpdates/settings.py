@@ -226,16 +226,24 @@ DATABASES['default']['CONN_HEALTH_CHECKS'] = True
 DATABASES['default']['OPTIONS'] = {"application_name": "check-update-vercel"}
 
 CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))
-REDIS_URL = os.getenv("REDIS_URL")  # local fallback for dev
+REDIS_URL = os.getenv("REDIS_URL")
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_URL,
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-        "KEY_PREFIX": "check_update",
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+            "KEY_PREFIX": "check_update",
+        }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "unique-checkupdate-fallback",
+        }
+    }
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
