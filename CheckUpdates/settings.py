@@ -214,16 +214,16 @@ WSGI_APPLICATION = 'CheckUpdates.wsgi.application'
 #     }
 # }
 
-
 DATABASES = {
     'default': dj_database_url.parse(
-        os.getenv('DATABASE_URL'),
-        conn_max_age=600,
+        os.getenv("DATABASE_URL"),
+        conn_max_age=600,      # reuse connection for 10 mins
         ssl_require=True
     )
 }
 
-
+# Add this line for safety
+DATABASES['default']['CONN_HEALTH_CHECKS'] = True
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 

@@ -42,3 +42,6 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.SUCCESS(f'Successfully added {category.name} with {len(subcategories)} subcategories')
             )
+
+from django.db import connection
+connection.close()

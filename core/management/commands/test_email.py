@@ -52,6 +52,8 @@ class Command(BaseCommand):
                     recipient_list=[recipient_email],
                     fail_silently=False
                 )
+                from django.db import connection
+                connection.close()
 
                 if result:
                     self.stdout.write(

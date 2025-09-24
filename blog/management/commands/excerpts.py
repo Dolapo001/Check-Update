@@ -20,3 +20,6 @@ class Command(BaseCommand):
                 self.stdout.write(f"Updated excerpt for news: {news.title}")
 
         self.stdout.write(self.style.SUCCESS('Successfully populated excerpts.'))
+
+from django.db import connection
+connection.close()

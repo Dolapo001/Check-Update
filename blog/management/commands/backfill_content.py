@@ -111,3 +111,5 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS('✅ Successfully backfilled news and advertisements')
         )
+from django.db import connection
+connection.close()

@@ -1,6 +1,7 @@
 amqp==5.3.1
 asgiref==3.9.1
 attrs==25.3.0
+beautifulsoup4==4.13.5
 billiard==4.2.1
 black==25.1.0
 cachetools==5.5.2
@@ -16,17 +17,19 @@ cryptography==45.0.5
 defusedxml==0.7.1
 dj-database-url==3.0.1
 dj-rest-auth==5.0.2
-Django~=5.2.6
+Django==5.2.6
 django-allauth==0.57.0
 django-cors-headers==4.3.1
 django-csp==4.0
 django-debug-toolbar==6.0.0
 django-jazzmin==3.0.1
 django-ratelimit==4.1.0
+django-uuid7==0.1.1
 djangorestframework==3.14.0
 djangorestframework_simplejwt==5.5.1
 dotenv==0.9.9
 drf-spectacular==0.28.0
+Faker==37.6.0
 gemini-cli==0.2.5
 google-ai-generativelanguage==0.4.0
 google-api-core==2.25.1
@@ -52,6 +55,7 @@ platformdirs==4.3.8
 prompt_toolkit==3.0.51
 proto-plus==1.26.1
 protobuf==4.25.8
+psycopg2==2.9.10
 psycopg2-binary==2.9.10
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
@@ -72,6 +76,7 @@ rich==13.9.4
 rpds-py==0.26.0
 rsa==4.9.1
 six==1.17.0
+soupsieve==2.8
 sqlparse==0.5.3
 toml==0.10.2
 tqdm==4.67.1
@@ -80,9 +85,7 @@ tzdata==2025.2
 uritemplate==4.2.0
 urllib3==2.5.0
 uuid6==2025.0.1
+uuid7==0.1.0
 vine==5.1.0
 wcwidth==0.2.13
 whitenoise==6.9.0
-
-beautifulsoup4~=4.13.5
-Faker~=37.6.0

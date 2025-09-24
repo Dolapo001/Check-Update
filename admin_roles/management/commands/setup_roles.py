@@ -69,3 +69,6 @@ class Command(BaseCommand):
                 role=admin_role
             )
             self.stdout.write(self.style.SUCCESS('Created admin user'))
+
+from django.db import connection
+connection.close()
