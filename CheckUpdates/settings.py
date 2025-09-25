@@ -216,15 +216,16 @@ WSGI_APPLICATION = 'CheckUpdates.wsgi.application'
 # }
 DATABASES = {
     "default": dj_database_url.parse(
-        os.getenv("DATABASE_URL"),   # make sure this is the POOLER URL (port 6543)
-        conn_max_age=0,              # important for serverless / PgBouncer transaction pooling
+        os.getenv("DATABASE_URL"),
+        conn_max_age=600,  # 10 minutes
         ssl_require=True
     )
 }
 
-# health checks + identify connections easily
-DATABASES['default']['CONN_HEALTH_CHECKS'] = True
-DATABASES['default']['OPTIONS'] = {"application_name": "check-update-vercel"}
+DATABASES['default']['OPTIONS'] = {
+    "application_name": "check-update-vercel",
+    "sslmode": "require",
+}
 
 CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))
 REDIS_URL = os.getenv("REDIS_URL")  # may be None in prod
