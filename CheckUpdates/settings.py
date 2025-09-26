@@ -369,7 +369,7 @@ SESSION_COOKIE_NAME = 'checkupdate_session'
 SESSION_COOKIE_AGE = 3600
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
-FRONTEND_URL = "http://127.0.0.1:3000"
+FRONTEND_URL = "https://checkupdate-tau.vercel.app/"
 
 #FRONTEND_URL = os.getenv('FRONTEND_URL')
 SUPPORT_EMAIL = "info@checkupdate.ng"

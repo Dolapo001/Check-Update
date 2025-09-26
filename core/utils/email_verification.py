@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 EMAIL_ENABLED = getattr(settings, "EMAIL_ENABLED", True)
 EMAIL_TIMEOUT = int(getattr(settings, "EMAIL_TIMEOUT", 10))  # seconds
 DEFAULT_FROM_EMAIL = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
-FRONTEND_URL = getattr(settings, "FRONTEND_URL", "http://127.0.0.1:3000")
+FRONTEND_URL = getattr(settings, "FRONTEND_URL", "https://checkupdate-tau.vercel.app/")
 SUPPORT_EMAIL = getattr(settings, "SUPPORT_EMAIL", "security@checkupdate.ng")
 COMPANY_NAME = getattr(settings, "COMPANY_NAME", "CheckUpdate")
 
@@ -40,7 +40,7 @@ def generate_verification_link(user):
     user.verification_token_expires = expires_at
     user.save(update_fields=['verification_token', 'verification_token_expires'])
 
-    base_url = FRONTEND_URL.rstrip('/') if FRONTEND_URL else 'http://127.0.0.1:3000'
+    base_url = FRONTEND_URL.rstrip('/') if FRONTEND_URL else 'https://checkupdate-tau.vercel.app/'
     path = f'/verify-email?token={token}&email={user.email}'
     link = urljoin(base_url + '/', path.lstrip('/'))
 
@@ -48,7 +48,7 @@ def generate_verification_link(user):
 
 
 def generate_password_reset_link(token, user):
-    base_url = FRONTEND_URL.rstrip('/') if FRONTEND_URL else 'http://127.0.0.1:3000'
+    base_url = FRONTEND_URL.rstrip('/') if FRONTEND_URL else 'https://checkupdate-tau.vercel.app/'
     path = f'/reset-password?token={token}&email={user.email}'
     return urljoin(base_url + '/', path.lstrip('/'))
 
