@@ -1,5 +1,9 @@
+# core/utils/email_verification.py
+import os
+import time
 import logging
-import threading
+import secrets
+from datetime import timedelta
 from urllib.parse import urljoin
 from socket import timeout as SocketTimeout
 import smtplib
@@ -9,12 +13,16 @@ from django.template import TemplateDoesNotExist
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils import timezone
-import secrets
 
 logger = logging.getLogger(__name__)
 
-# Global flag to track if email is configured
-EMAIL_ENABLED = True
+# Config via settings with sane defaults
+EMAIL_ENABLED = getattr(settings, "EMAIL_ENABLED", True)
+EMAIL_TIMEOUT = int(getattr(settings, "EMAIL_TIMEOUT", 10))  # seconds
+DEFAULT_FROM_EMAIL = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
+FRONTEND_URL = getattr(settings, "FRONTEND_URL", "http://127.0.0.1:3000")
+SUPPORT_EMAIL = getattr(settings, "SUPPORT_EMAIL", "security@checkupdate.ng")
+COMPANY_NAME = getattr(settings, "COMPANY_NAME", "CheckUpdate")
 
 
 def generate_verification_token():
@@ -25,142 +33,120 @@ def generate_verification_token():
 def generate_verification_link(user):
     """Generate token, store it on the user, and return full verification URL"""
     token = generate_verification_token()
-    expires_at = timezone.now() + timezone.timedelta(hours=24)
+    expires_at = timezone.now() + timedelta(hours=24)
 
+    # Consider hashing token before saving in DB for extra security.
     user.verification_token = token
     user.verification_token_expires = expires_at
     user.save(update_fields=['verification_token', 'verification_token_expires'])
 
-    # Safely get FRONTEND_URL with fallback
-    base_url = getattr(settings, 'FRONTEND_URL', 'http://127.0.0.1:3000')
-    base_url = base_url.rstrip('/') if base_url else 'http://127.0.0.1:3000'
-
+    base_url = FRONTEND_URL.rstrip('/') if FRONTEND_URL else 'http://127.0.0.1:3000'
     path = f'/verify-email?token={token}&email={user.email}'
     link = urljoin(base_url + '/', path.lstrip('/'))
 
-    return {
-        'token': token,
-        'link': link,
-        'expires_at': expires_at
-    }
+    return {'token': token, 'link': link, 'expires_at': expires_at}
 
 
 def generate_password_reset_link(token, user):
-    """Generate password reset URL"""
-    base_url = getattr(settings, 'FRONTEND_URL', "http://127.0.0.1:3000")
-    base_url = base_url.rstrip('/') if base_url else 'http://127.0.0.1:3000'
-
+    base_url = FRONTEND_URL.rstrip('/') if FRONTEND_URL else 'http://127.0.0.1:3000'
     path = f'/reset-password?token={token}&email={user.email}'
     return urljoin(base_url + '/', path.lstrip('/'))
 
 
-def send_email_with_template(subject, template_name, context, recipient_list, fail_silently=True):
-    """
-    Generic function to send emails using Django's email system
-    """
-    # Check if email is enabled
-    if not EMAIL_ENABLED:
-        logger.info(f"Email sending disabled. Would send '{subject}' to {recipient_list}")
-        return True
+def _render_templates(template_name: str, context: dict):
+    """Return (plain_message, html_message). Falls back cleanly if templates missing."""
+    html_message = None
+    plain_message = None
 
     try:
-        # Render HTML template
-        try:
-            html_message = render_to_string(f'{template_name}.html', context)
-        except TemplateDoesNotExist:
-            html_message = None
-            logger.warning(f"HTML template {template_name}.html not found")
+        html_message = render_to_string(f'{template_name}.html', context)
+    except TemplateDoesNotExist:
+        logger.debug("HTML template %s not found", f'{template_name}.html')
 
-        # Render text template
-        try:
-            plain_message = render_to_string(f'{template_name}.txt', context)
-        except TemplateDoesNotExist:
-            # Fallback plain text message
-            if 'verification_link' in context:
-                plain_message = f"Please verify your email: {context['verification_link']}"
-            elif 'reset_link' in context:
-                plain_message = f"Reset your password: {context['reset_link']}"
-            else:
-                plain_message = "Please check your email for further instructions."
-            logger.warning(f"Text template {template_name}.txt not found, using fallback")
+    try:
+        plain_message = render_to_string(f'{template_name}.txt', context)
+    except TemplateDoesNotExist:
+        # Fallback plain text
+        if 'verification_link' in context:
+            plain_message = f"Please verify your email: {context['verification_link']}"
+        elif 'reset_link' in context:
+            plain_message = f"Reset your password: {context['reset_link']}"
+        else:
+            plain_message = "Please check your email for further instructions."
 
-        # Create email message
-        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com')
+        logger.debug("Text template %s not found; using fallback", f'{template_name}.txt')
 
-        msg = EmailMultiAlternatives(
-            subject=subject,
-            body=plain_message,
-            from_email=from_email,
-            to=recipient_list
-        )
+    return plain_message, html_message
 
-        if html_message:
-            msg.attach_alternative(html_message, "text/html")
 
-        # Send email with timeout handling
-        try:
-            result = msg.send(fail_silently=fail_silently)
+def send_email_with_template(subject, template_name, context, recipient_list, fail_silently=True):
+    """
+    Synchronous email send (blocking). Uses explicit SMTP connection with timeout.
+    Returns True on success, False on failure.
+    """
+    if not EMAIL_ENABLED:
+        logger.info("EMAIL_ENABLED=False. Skipping send for '%s' to %s", subject, recipient_list)
+        return True
 
-            if result:
-                logger.info(f"Email sent successfully to {', '.join(recipient_list)}")
-                return True
-            else:
-                logger.error(f"Failed to send email to {', '.join(recipient_list)}")
-                return False
+    if not recipient_list:
+        logger.warning("No recipients provided for email subject=%s", subject)
+        return False
 
-        except (SocketTimeout, smtplib.SMTPException) as e:
-            logger.error(f"SMTP error sending to {recipient_list}: {str(e)}")
+    start = time.time()
+
+    plain_message, html_message = _render_templates(template_name, context)
+
+    # Build email
+    from_email = DEFAULT_FROM_EMAIL
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=plain_message or "",
+        from_email=from_email,
+        to=recipient_list
+    )
+    if html_message:
+        msg.attach_alternative(html_message, "text/html")
+
+    # Use a connection with explicit timeout. get_connection will read from EMAIL_* settings.
+    # We explicitly open/close to avoid implicit per-message connection overhead.
+    connection = None
+    try:
+        connection = get_connection(timeout=EMAIL_TIMEOUT)  # uses settings by default
+        connection.open()
+        num_sent = connection.send_messages([msg])  # returns number of successfully sent messages
+        duration = time.time() - start
+
+        if num_sent and num_sent >= 1:
+            logger.info("Email '%s' sent to %s (duration=%.2fs)", subject, recipient_list, duration)
+            return True
+        else:
+            logger.error("Email '%s' failed to send to %s (duration=%.2fs)", subject, recipient_list, duration)
             return False
 
-    except Exception as e:
-        logger.error(f"Error sending email to {', '.join(recipient_list)}: {str(e)}")
+    except (SocketTimeout, smtplib.SMTPException) as e:
+        duration = time.time() - start
+        logger.exception("SMTP error sending '%s' to %s (duration=%.2fs): %s", subject, recipient_list, duration, e)
         if not fail_silently:
             raise
         return False
 
+    except Exception as e:
+        duration = time.time() - start
+        logger.exception("Unexpected error sending '%s' to %s (duration=%.2fs): %s", subject, recipient_list, duration, e)
+        if not fail_silently:
+            raise
+        return False
 
-# ASYNC FUNCTIONS - Use these in your views
-def send_verification_email_async(user, fail_silently=True):
-    """Send verification email in a separate thread (NON-BLOCKING)"""
-
-    def _send_email():
+    finally:
         try:
-            send_verification_email_sync(user, fail_silently)
-        except Exception as e:
-            logger.error(f"Async verification email failed: {str(e)}")
-
-    # Start email sending in background thread
-    thread = threading.Thread(target=_send_email)
-    thread.daemon = True  # Thread won't block program exit
-    thread.start()
-
-    # Always return True immediately - don't wait for email to send
-    logger.info(f"Verification email queued for {user.email}")
-    return True
+            if connection:
+                connection.close()
+        except Exception:
+            logger.debug("Error closing email connection", exc_info=True)
 
 
-def send_password_reset_email_async(user, token, fail_silently=True):
-    """Send password reset email in a separate thread (NON-BLOCKING)"""
-
-    def _send_email():
-        try:
-            send_password_reset_email_sync(user, token, fail_silently)
-        except Exception as e:
-            logger.error(f"Async password reset email failed: {str(e)}")
-
-    # Start email sending in background thread
-    thread = threading.Thread(target=_send_email)
-    thread.daemon = True  # Thread won't block program exit
-    thread.start()
-
-    # Always return True immediately - don't wait for email to send
-    logger.info(f"Password reset email queued for {user.email}")
-    return True
-
-
-# SYNC FUNCTIONS - Used by async functions internally
 def send_verification_email_sync(user, fail_silently=True):
-    """Synchronous version of verification email (used internally)"""
+    """Synchronous verification email send"""
     try:
         verification_data = generate_verification_link(user)
 
@@ -168,11 +154,11 @@ def send_verification_email_sync(user, fail_silently=True):
             'user': user,
             'verification_link': verification_data['link'],
             'expiration_hours': 24,
-            'support_email': getattr(settings, 'SUPPORT_EMAIL', 'security@checkupdate.ng'),
-            'company_name': getattr(settings, 'COMPANY_NAME', 'CheckUpdate'),
+            'support_email': SUPPORT_EMAIL,
+            'company_name': COMPANY_NAME,
         }
 
-        success = send_email_with_template(
+        return send_email_with_template(
             subject='Verify Your Email Address',
             template_name='verify_email',
             context=context,
@@ -180,22 +166,15 @@ def send_verification_email_sync(user, fail_silently=True):
             fail_silently=fail_silently
         )
 
-        if success:
-            logger.info(f"Verification email sent to {user.email}")
-        else:
-            logger.error(f"Failed to send verification email to {user.email}")
-
-        return success
-
     except Exception as e:
-        logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+        logger.exception("Failed to send verification email to %s: %s", getattr(user, "email", "<unknown>"), e)
         if not fail_silently:
             raise
         return False
 
 
 def send_password_reset_email_sync(user, token, fail_silently=True):
-    """Synchronous version of password reset email (used internally)"""
+    """Synchronous password reset email send"""
     try:
         reset_link = generate_password_reset_link(token, user)
 
@@ -203,11 +182,11 @@ def send_password_reset_email_sync(user, token, fail_silently=True):
             'user': user,
             'reset_link': reset_link,
             'expiration_hours': 24,
-            'support_email': getattr(settings, 'SUPPORT_EMAIL', 'security@checkupdate.ng'),
-            'company_name': getattr(settings, 'COMPANY_NAME', 'CheckUpdate'),
+            'support_email': SUPPORT_EMAIL,
+            'company_name': COMPANY_NAME,
         }
 
-        success = send_email_with_template(
+        return send_email_with_template(
             subject='Reset Your Password',
             template_name='password_reset',
             context=context,
@@ -215,54 +194,30 @@ def send_password_reset_email_sync(user, token, fail_silently=True):
             fail_silently=fail_silently
         )
 
-        if success:
-            logger.info(f"Password reset email sent to {user.email}")
-        else:
-            logger.error(f"Failed to send password reset email to {user.email}")
-
-        return success
-
     except Exception as e:
-        logger.error(f"Failed to send password reset email to {user.email}: {str(e)}")
+        logger.exception("Failed to send password reset email to %s: %s", getattr(user, "email", "<unknown>"), e)
         if not fail_silently:
             raise
         return False
 
 
-# BACKWARD COMPATIBILITY - Keep original function names but make them async
+# convenience/backwards-compatible aliases if other modules call these names
 def send_verification_email(user, fail_silently=True):
-    """Backward compatibility - now calls async version"""
-    return send_verification_email_async(user, fail_silently)
+    return send_verification_email_sync(user, fail_silently=fail_silently)
 
 
 def send_password_reset_email(user, token, fail_silently=True):
-    """Backward compatibility - now calls async version"""
-    return send_password_reset_email_async(user, token, fail_silently)
-
-
-# Emergency function to disable email sending completely
-def disable_email_sending():
-    """Completely disable email sending (emergency use)"""
-    global EMAIL_ENABLED
-    EMAIL_ENABLED = False
-    logger.warning("Email sending has been disabled globally")
-
-
-def enable_email_sending():
-    """Enable email sending"""
-    global EMAIL_ENABLED
-    EMAIL_ENABLED = True
-    logger.info("Email sending has been enabled")
+    return send_password_reset_email_sync(user, token, fail_silently=fail_silently)
 
 
 def test_email_connection():
     """Test email connection and configuration"""
     try:
-        connection = get_connection()
+        connection = get_connection(timeout=EMAIL_TIMEOUT)
         connection.open()
         connection.close()
         logger.info("Email connection test successful")
         return True
     except Exception as e:
-        logger.error(f"Email connection test failed: {str(e)}")
+        logger.exception("Email connection test failed: %s", e)
         return False
