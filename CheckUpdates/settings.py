@@ -354,11 +354,11 @@ ZEPTOMAIL_CONFIG = {
     'FROM_EMAIL': DEFAULT_FROM_EMAIL,
 }
 
-if DEBUG:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    print("Using console email backend for development")
-else:
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# if DEBUG:
+#     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+#     print("Using console email backend for development")
+# else:
+#     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 
 # Other settings
