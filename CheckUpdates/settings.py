@@ -352,6 +352,11 @@ ZEPTOMAIL_CONFIG = {
     'FROM_EMAIL': DEFAULT_FROM_EMAIL,
 }
 
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    print("Using console email backend for development")
+
+
 # Other settings
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'

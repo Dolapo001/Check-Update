@@ -31,7 +31,7 @@ class RegisterView(APIView):
             user = serializer.save()
 
             # Send verification email
-            if send_verification_email_async(user):
+            if send_verification_email(user):
                 return Response(
                     {"detail": "User registered successfully. Verification email sent."},
                     status=status.HTTP_201_CREATED
@@ -134,7 +134,7 @@ class ResendVerificationView(APIView):
                 email = serializer.validated_data['email']
                 try:
                     user = User.objects.get(email=email)
-                    if send_verification_email_async(user):
+                    if send_verification_email(user):
                         return Response(
                             {"detail": "Verification email resent successfully."},
                             status=status.HTTP_200_OK
@@ -174,7 +174,7 @@ class ForgotPasswordView(APIView):
                     user = User.objects.get(email=email)
                     reset_token = PasswordResetToken.create_token(user)
 
-                    send_password_reset_email_async(user, reset_token.token)
+                    send_password_reset_email(user, reset_token.token)
 
                 except User.DoesNotExist:
                     # Don't reveal whether email exists — security best practice

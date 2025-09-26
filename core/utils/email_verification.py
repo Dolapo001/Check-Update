@@ -1,16 +1,20 @@
 import logging
 import threading
 from urllib.parse import urljoin
+from socket import timeout as SocketTimeout
+import smtplib
+
 from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template import TemplateDoesNotExist
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils import timezone
 import secrets
-import smtplib
-from socket import timeout as SocketTimeout
 
 logger = logging.getLogger(__name__)
+
+# Global flag to track if email is configured
+EMAIL_ENABLED = True
 
 
 def generate_verification_token():
@@ -50,10 +54,15 @@ def generate_password_reset_link(token, user):
     return urljoin(base_url + '/', path.lstrip('/'))
 
 
-def send_email_with_template(subject, template_name, context, recipient_list, fail_silently=False):
+def send_email_with_template(subject, template_name, context, recipient_list, fail_silently=True):
     """
     Generic function to send emails using Django's email system
     """
+    # Check if email is enabled
+    if not EMAIL_ENABLED:
+        logger.info(f"Email sending disabled. Would send '{subject}' to {recipient_list}")
+        return True
+
     try:
         # Render HTML template
         try:
@@ -88,26 +97,31 @@ def send_email_with_template(subject, template_name, context, recipient_list, fa
         if html_message:
             msg.attach_alternative(html_message, "text/html")
 
-        # Send email
-        connection = get_connection()
-        result = msg.send(fail_silently=fail_silently)
+        # Send email with timeout handling
+        try:
+            result = msg.send(fail_silently=fail_silently)
 
-        if result:
-            logger.info(f"Email sent successfully to {', '.join(recipient_list)}")
-            return True
-        else:
-            logger.error(f"Failed to send email to {', '.join(recipient_list)}")
+            if result:
+                logger.info(f"Email sent successfully to {', '.join(recipient_list)}")
+                return True
+            else:
+                logger.error(f"Failed to send email to {', '.join(recipient_list)}")
+                return False
+
+        except (SocketTimeout, smtplib.SMTPException) as e:
+            logger.error(f"SMTP error sending to {recipient_list}: {str(e)}")
             return False
 
     except Exception as e:
-        logger.error(f"Error sending email to {', '.join(recipient_list)}: {str(e)}", exc_info=True)
+        logger.error(f"Error sending email to {', '.join(recipient_list)}: {str(e)}")
         if not fail_silently:
             raise
         return False
 
 
+# ASYNC FUNCTIONS - Use these in your views
 def send_verification_email_async(user, fail_silently=True):
-    """Send verification email in a separate thread to avoid blocking"""
+    """Send verification email in a separate thread (NON-BLOCKING)"""
 
     def _send_email():
         try:
@@ -115,14 +129,18 @@ def send_verification_email_async(user, fail_silently=True):
         except Exception as e:
             logger.error(f"Async verification email failed: {str(e)}")
 
+    # Start email sending in background thread
     thread = threading.Thread(target=_send_email)
-    thread.daemon = True
+    thread.daemon = True  # Thread won't block program exit
     thread.start()
-    return True  # Always return success to avoid blocking user
+
+    # Always return True immediately - don't wait for email to send
+    logger.info(f"Verification email queued for {user.email}")
+    return True
 
 
 def send_password_reset_email_async(user, token, fail_silently=True):
-    """Send password reset email in a separate thread to avoid blocking"""
+    """Send password reset email in a separate thread (NON-BLOCKING)"""
 
     def _send_email():
         try:
@@ -130,14 +148,19 @@ def send_password_reset_email_async(user, token, fail_silently=True):
         except Exception as e:
             logger.error(f"Async password reset email failed: {str(e)}")
 
+    # Start email sending in background thread
     thread = threading.Thread(target=_send_email)
-    thread.daemon = True
+    thread.daemon = True  # Thread won't block program exit
     thread.start()
-    return True  # Always return success to avoid blocking user
+
+    # Always return True immediately - don't wait for email to send
+    logger.info(f"Password reset email queued for {user.email}")
+    return True
 
 
+# SYNC FUNCTIONS - Used by async functions internally
 def send_verification_email_sync(user, fail_silently=True):
-    """Synchronous version with proper error handling"""
+    """Synchronous version of verification email (used internally)"""
     try:
         verification_data = generate_verification_link(user)
 
@@ -157,11 +180,13 @@ def send_verification_email_sync(user, fail_silently=True):
             fail_silently=fail_silently
         )
 
+        if success:
+            logger.info(f"Verification email sent to {user.email}")
+        else:
+            logger.error(f"Failed to send verification email to {user.email}")
+
         return success
 
-    except (SocketTimeout, smtplib.SMTPException) as e:
-        logger.error(f"Email timeout/error for {user.email}: {str(e)}")
-        return False
     except Exception as e:
         logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
         if not fail_silently:
@@ -170,7 +195,7 @@ def send_verification_email_sync(user, fail_silently=True):
 
 
 def send_password_reset_email_sync(user, token, fail_silently=True):
-    """Synchronous version with proper error handling"""
+    """Synchronous version of password reset email (used internally)"""
     try:
         reset_link = generate_password_reset_link(token, user)
 
@@ -190,11 +215,13 @@ def send_password_reset_email_sync(user, token, fail_silently=True):
             fail_silently=fail_silently
         )
 
+        if success:
+            logger.info(f"Password reset email sent to {user.email}")
+        else:
+            logger.error(f"Failed to send password reset email to {user.email}")
+
         return success
 
-    except (SocketTimeout, smtplib.SMTPException) as e:
-        logger.error(f"Password reset email timeout/error for {user.email}: {str(e)}")
-        return False
     except Exception as e:
         logger.error(f"Failed to send password reset email to {user.email}: {str(e)}")
         if not fail_silently:
@@ -202,49 +229,30 @@ def send_password_reset_email_sync(user, token, fail_silently=True):
         return False
 
 
-# Alternative: Keep your custom ZeptoMail implementation as backup
-def send_zeptomail_custom(subject, plain_message, recipient_list, html_message=None):
-    """
-    Custom ZeptoMail implementation (backup method)
-    """
-    import smtplib
-    import ssl
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.text import MIMEText
+# BACKWARD COMPATIBILITY - Keep original function names but make them async
+def send_verification_email(user, fail_silently=True):
+    """Backward compatibility - now calls async version"""
+    return send_verification_email_async(user, fail_silently)
 
-    config = getattr(settings, 'ZEPTOMAIL_CONFIG', {})
 
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = subject
-    msg['From'] = config.get('FROM_EMAIL', settings.DEFAULT_FROM_EMAIL)
-    msg['To'] = ', '.join(recipient_list)
+def send_password_reset_email(user, token, fail_silently=True):
+    """Backward compatibility - now calls async version"""
+    return send_password_reset_email_async(user, token, fail_silently)
 
-    # Attach plain text version
-    part1 = MIMEText(plain_message, 'plain')
-    msg.attach(part1)
 
-    # Attach HTML version if exists
-    if html_message:
-        part2 = MIMEText(html_message, 'html')
-        msg.attach(part2)
+# Emergency function to disable email sending completely
+def disable_email_sending():
+    """Completely disable email sending (emergency use)"""
+    global EMAIL_ENABLED
+    EMAIL_ENABLED = False
+    logger.warning("Email sending has been disabled globally")
 
-    try:
-        if config.get('SMTP_PORT') == 465:
-            context = ssl.create_default_context()
-            with smtplib.SMTP_SSL(config['SMTP_SERVER'], config['SMTP_PORT'], context=context) as server:
-                server.login(config['USERNAME'], config['PASSWORD'])
-                server.send_message(msg)
-        else:
-            with smtplib.SMTP(config['SMTP_SERVER'], config['SMTP_PORT']) as server:
-                server.starttls()
-                server.login(config['USERNAME'], config['PASSWORD'])
-                server.send_message(msg)
 
-        logger.info(f"ZeptoMail custom email sent successfully to {', '.join(recipient_list)}")
-        return True
-    except Exception as e:
-        logger.error(f"ZeptoMail custom sending failed: {str(e)}", exc_info=True)
-        return False
+def enable_email_sending():
+    """Enable email sending"""
+    global EMAIL_ENABLED
+    EMAIL_ENABLED = True
+    logger.info("Email sending has been enabled")
 
 
 def test_email_connection():
@@ -257,25 +265,4 @@ def test_email_connection():
         return True
     except Exception as e:
         logger.error(f"Email connection test failed: {str(e)}")
-        return False
-
-
-def validate_email_config():
-    """Validate email configuration on startup"""
-    required_settings = ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_HOST_USER', 'EMAIL_HOST_PASSWORD']
-
-    for setting in required_settings:
-        if not getattr(settings, setting, None):
-            logger.warning(f"Email setting {setting} is not configured")
-            return False
-
-    # Test connection
-    try:
-        connection = get_connection()
-        connection.open()
-        connection.close()
-        logger.info("Email configuration is valid")
-        return True
-    except Exception as e:
-        logger.error(f"Email configuration test failed: {e}")
         return False
