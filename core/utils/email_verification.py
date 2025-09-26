@@ -1,4 +1,5 @@
 import logging
+import threading
 from urllib.parse import urljoin
 from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template import TemplateDoesNotExist
@@ -6,6 +7,8 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils import timezone
 import secrets
+import smtplib
+from socket import timeout as SocketTimeout
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +106,38 @@ def send_email_with_template(subject, template_name, context, recipient_list, fa
         return False
 
 
-def send_verification_email(user, fail_silently=True):
-    """Send email verification email using Django's email system"""
+def send_verification_email_async(user, fail_silently=True):
+    """Send verification email in a separate thread to avoid blocking"""
+
+    def _send_email():
+        try:
+            send_verification_email_sync(user, fail_silently)
+        except Exception as e:
+            logger.error(f"Async verification email failed: {str(e)}")
+
+    thread = threading.Thread(target=_send_email)
+    thread.daemon = True
+    thread.start()
+    return True  # Always return success to avoid blocking user
+
+
+def send_password_reset_email_async(user, token, fail_silently=True):
+    """Send password reset email in a separate thread to avoid blocking"""
+
+    def _send_email():
+        try:
+            send_password_reset_email_sync(user, token, fail_silently)
+        except Exception as e:
+            logger.error(f"Async password reset email failed: {str(e)}")
+
+    thread = threading.Thread(target=_send_email)
+    thread.daemon = True
+    thread.start()
+    return True  # Always return success to avoid blocking user
+
+
+def send_verification_email_sync(user, fail_silently=True):
+    """Synchronous version with proper error handling"""
     try:
         verification_data = generate_verification_link(user)
 
@@ -126,15 +159,18 @@ def send_verification_email(user, fail_silently=True):
 
         return success
 
+    except (SocketTimeout, smtplib.SMTPException) as e:
+        logger.error(f"Email timeout/error for {user.email}: {str(e)}")
+        return False
     except Exception as e:
-        logger.error(f"Failed to send verification email to {user.email}: {str(e)}", exc_info=True)
+        logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
         if not fail_silently:
             raise
         return False
 
 
-def send_password_reset_email(user, token, fail_silently=True):
-    """Send password reset email using Django's email system"""
+def send_password_reset_email_sync(user, token, fail_silently=True):
+    """Synchronous version with proper error handling"""
     try:
         reset_link = generate_password_reset_link(token, user)
 
@@ -156,8 +192,11 @@ def send_password_reset_email(user, token, fail_silently=True):
 
         return success
 
+    except (SocketTimeout, smtplib.SMTPException) as e:
+        logger.error(f"Password reset email timeout/error for {user.email}: {str(e)}")
+        return False
     except Exception as e:
-        logger.error(f"Failed to send password reset email to {user.email}: {str(e)}", exc_info=True)
+        logger.error(f"Failed to send password reset email to {user.email}: {str(e)}")
         if not fail_silently:
             raise
         return False
@@ -218,4 +257,25 @@ def test_email_connection():
         return True
     except Exception as e:
         logger.error(f"Email connection test failed: {str(e)}")
+        return False
+
+
+def validate_email_config():
+    """Validate email configuration on startup"""
+    required_settings = ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_HOST_USER', 'EMAIL_HOST_PASSWORD']
+
+    for setting in required_settings:
+        if not getattr(settings, setting, None):
+            logger.warning(f"Email setting {setting} is not configured")
+            return False
+
+    # Test connection
+    try:
+        connection = get_connection()
+        connection.open()
+        connection.close()
+        logger.info("Email configuration is valid")
+        return True
+    except Exception as e:
+        logger.error(f"Email configuration test failed: {e}")
         return False

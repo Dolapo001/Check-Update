@@ -341,6 +341,7 @@ EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False  # Since you're using port 587 with TLS
 DEFAULT_FROM_EMAIL = os.getenv("ZEPTOMAIL_FROM_EMAIL", "security@checkupdate.ng")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
+EMAIL_TIMEOUT = 10
 
 # ZeptoMail specific configuration (for custom implementation)
 ZEPTOMAIL_CONFIG = {
