@@ -291,6 +291,8 @@ class SubCategoryPageView(BaseAPIView):
                 subcategory=subcategory,
                 is_active=True
             )[:2]
+            most_viewed = News.objects.get_most_viewed(subcategory=subcategory)
+            latest_news = News.objects.get_latest(subcategory=subcategory)
 
             data = {
                 "subcategory": SubCategorySerializer(subcategory).data,
@@ -305,10 +307,13 @@ class SubCategoryPageView(BaseAPIView):
                     }
                 },
                 "top_news": NewsSerializer(top_news, many=True, context={'request': request}).data,
+
                 "hot_stories": NewsSerializer(hot_stories, many=True, context={'request': request}).data,
                 "foreign_news": NewsSerializer(foreign_news, many=True, context={'request': request}).data,
                 "local_news": NewsSerializer(local_news, many=True, context={'request': request}).data,
                 "ads": AdvertisementSerializer(ads, many=True).data,
+                "most_viewed": NewsSerializer(most_viewed, many=True, context={'request': request}).data,
+                "latest_news": NewsSerializer(latest_news, many=True,context={'request': request}).data
             }
 
             cache.set(cache_key, data, timeout=CACHE_TTL)
