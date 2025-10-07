@@ -1,4 +1,5 @@
 from datetime import timezone
+from django.db import models
 
 
 class NewsManager(models.Manager):
