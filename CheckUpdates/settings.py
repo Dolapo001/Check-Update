@@ -238,7 +238,6 @@ def locmem_cache():
             "LOCATION": "unique-checkupdate-fallback",
         }
     }
-
 if REDIS_URL:
     # try to use redis, but fall back if it fails to connect
     CACHES = {

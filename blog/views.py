@@ -5,6 +5,8 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.core.cache import cache
+
+from .mixin import CachedNewsMixin
 from .models import *
 from .serializers import *
 
@@ -43,103 +45,75 @@ class NewsDetailView(BaseAPIView):
             return self.error_response("Failed to fetch news")
 
 
-class LatestNewsView(BaseAPIView):
+class LatestNewsView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
-        try:
-            limit = int(request.GET.get('limit', 10))
-            cache_key = f"news:latest:limit={limit}"
-            data = cache.get(cache_key)
-            if data is not None:
-                return self.success_response(data)
-
-            news = News.objects.get_latest(limit)
-            serializer = NewsSerializer(news, many=True, context={'request': request})
-            data = serializer.data
-            cache.set(cache_key, data, timeout=CACHE_TTL)
-            return self.success_response(data)
-        except Exception as e:
-            logger.error(f"Error fetching latest news: {str(e)}")
-            return self.error_response("Failed to fetch latest news")
+        limit = int(request.GET.get('limit', 10))
+        cache_key = f"news:latest:limit={limit}"
+        return self.get_cached_news(
+            cache_key,
+            News.objects.get_latest,
+            NewsSerializer,
+            limit,
+            {'request': request},
+            CACHE_TTL
+        )
 
 
-class TrendingNewsView(BaseAPIView):
+class TrendingNewsView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
-        try:
-            limit = int(request.GET.get('limit', 10))
-            cache_key = f"news:trending:limit={limit}"
-            data = cache.get(cache_key)
-            if data is not None:
-                return self.success_response(data)
-
-            news = News.objects.get_trending(limit)
-            serializer = NewsSerializer(news, many=True, context={'request': request})
-            data = serializer.data
-            cache.set(cache_key, data, timeout=CACHE_TTL)
-            return self.success_response(data)
-        except Exception as e:
-            logger.error(f"Error fetching trending news: {str(e)}")
-            return self.error_response("Failed to fetch trending news")
+        limit = int(request.GET.get('limit', 10))
+        cache_key = f"news:trending:limit={limit}"
+        return self.get_cached_news(
+            cache_key,
+            News.objects.get_trending,
+            NewsSerializer,
+            limit,
+            {'request': request},
+            CACHE_TTL
+        )
 
 
-class TopStoriesView(BaseAPIView):
+class TopStoriesView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
-        try:
-            limit = int(request.GET.get('limit', 10))
-            cache_key = f"news:topstories:limit={limit}"
-            data = cache.get(cache_key)
-            if data is not None:
-                return self.success_response(data)
-
-            news = News.objects.get_top_stories(limit)
-            serializer = NewsSerializer(news, many=True, context={'request': request})
-            data = serializer.data
-            cache.set(cache_key, data, timeout=CACHE_TTL)
-            return self.success_response(data)
-        except Exception as e:
-            logger.error(f"Error fetching top stories: {str(e)}")
-            return self.error_response("Failed to fetch top stories")
+        limit = int(request.GET.get('limit', 10))
+        cache_key = f"news:topstories:limit={limit}"
+        return self.get_cached_news(
+            cache_key,
+            News.objects.get_top_stories,
+            NewsSerializer,
+            limit,
+            {'request': request},
+            CACHE_TTL
+        )
 
 
-class MostWatchedView(BaseAPIView):
+class MostWatchedView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
-        try:
-            limit = int(request.GET.get('limit', 10))
-            cache_key = f"news:mostwatched:limit={limit}"
-            data = cache.get(cache_key)
-            if data is not None:
-                return self.success_response(data)
-
-            news = News.objects.get_most_watched_videos(limit)
-            serializer = NewsSerializer(news, many=True, context={'request': request})
-            data = serializer.data
-            cache.set(cache_key, data, timeout=CACHE_TTL)
-            return self.success_response(data)
-        except Exception as e:
-            logger.error(f"Error fetching most watched videos: {str(e)}")
-            return self.error_response("Failed to fetch most watched videos")
+        limit = int(request.GET.get('limit', 10))
+        cache_key = f"news:mostwatched:limit={limit}"
+        return self.get_cached_news(
+            cache_key,
+            News.objects.get_most_watched_videos,
+            NewsSerializer,
+            limit,
+            {'request': request},
+            CACHE_TTL
+        )
 
 
-class RecommendedNewsView(BaseAPIView):
+class RecommendedNewsView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
-        try:
-            limit = int(request.GET.get('limit', 10))
-            # include user id in cache key for personalized results; anonymous = "anon"
-            user_part = f"user={getattr(request.user, 'id', 'anon')}"
-            cache_key = f"news:recommended:{user_part}:limit={limit}"
-            data = cache.get(cache_key)
-            if data is not None:
-                return self.success_response(data)
-
-            news = News.objects.get_recommended(request.user, limit)
-            serializer = NewsSerializer(news, many=True, context={'request': request})
-            data = serializer.data
-            cache.set(cache_key, data, timeout=CACHE_TTL)
-            return self.success_response(data)
-        except Exception as e:
-            logger.error(f"Error fetching recommended news: {str(e)}")
-            return self.error_response("Failed to fetch recommended news")
-
-
+        limit = int(request.GET.get('limit', 10))
+        user_part = f"user={getattr(request.user, 'id', 'anon')}"
+        cache_key = f"news:recommended:{user_part}:limit={limit}"
+        return self.get_cached_news(
+            cache_key,
+            lambda limit: News.objects.get_recommended(request.user, limit),
+            NewsSerializer,
+            limit,
+            {'request': request},
+            CACHE_TTL
+        )
 class BookmarkNewsView(BaseAPIView):
     def post(self, request, news_id):
         try:
@@ -265,7 +239,6 @@ class CustomPagination(PageNumberPagination):
 class SubCategoryPageView(BaseAPIView):
     def get(self, request, subcategory_id):
         try:
-            # include page & page_size in cache key so different pages are cached separately
             page = request.GET.get('page', '1')
             page_size = request.GET.get('page_size', None) or CustomPagination.page_size
             cache_key = f"subcategory_page:{subcategory_id}:page={page}:size={page_size}"
@@ -276,24 +249,32 @@ class SubCategoryPageView(BaseAPIView):
 
             subcategory = get_object_or_404(SubCategory, id=subcategory_id)
 
-            # Get paginated excerpt news with proper ordering
-            excerpt_news = News.objects.get_excerpt(subcategory=subcategory)
+            # ---- Excerpt / Paginated News ----
+            excerpt_news_qs = News.objects.get_excerpt(subcategory=subcategory)
             paginator = CustomPagination()
-            paginated_excerpt_news = paginator.paginate_queryset(excerpt_news, request)
-            excerpt_serializer = NewsSerializer(paginated_excerpt_news, many=True, context={'request': request})
+            paginated_excerpt = paginator.paginate_queryset(excerpt_news_qs, request)
+            excerpt_serializer = NewsSerializer(paginated_excerpt, many=True, context={'request': request})
 
-            # Get other data (not paginated)
+            # ---- Other News Sections (Scoped to SubCategory) ----
             top_news = News.objects.get_most_viewed(subcategory=subcategory, limit=5)
             hot_stories = News.objects.get_hot_stories_this_week(subcategory=subcategory)
             foreign_news = News.objects.get_foreign_news(subcategory=subcategory, is_foreign=True)
             local_news = News.objects.get_foreign_news(subcategory=subcategory, is_foreign=False)
-            ads = Advertisement.objects.filter(
-                subcategory=subcategory,
-                is_active=True
-            )[:2]
             most_viewed = News.objects.get_most_viewed(subcategory=subcategory)
             latest_news = News.objects.get_latest(subcategory=subcategory)
 
+            # ---- Ads (fallback to category/global if subcategory ads are few) ----
+            ads = Advertisement.objects.filter(
+                subcategory=subcategory, is_active=True
+            )[:2]
+            if ads.count() < 2 and subcategory.category_id:
+                remaining = 2 - ads.count()
+                category_ads = Advertisement.objects.filter(
+                    category_id=subcategory.category_id, is_active=True
+                )[:remaining]
+                ads = list(ads) + list(category_ads)
+
+            # ---- Response Data ----
             data = {
                 "subcategory": SubCategorySerializer(subcategory).data,
                 "excerpt_news": {
@@ -304,20 +285,20 @@ class SubCategoryPageView(BaseAPIView):
                         "previous": paginator.get_previous_link(),
                         "current_page": paginator.page.number,
                         "total_pages": paginator.page.paginator.num_pages,
-                    }
+                    },
                 },
+                "latest_news": NewsSerializer(latest_news, many=True, context={'request': request}).data,
                 "top_news": NewsSerializer(top_news, many=True, context={'request': request}).data,
-
                 "hot_stories": NewsSerializer(hot_stories, many=True, context={'request': request}).data,
                 "foreign_news": NewsSerializer(foreign_news, many=True, context={'request': request}).data,
                 "local_news": NewsSerializer(local_news, many=True, context={'request': request}).data,
-                "ads": AdvertisementSerializer(ads, many=True).data,
                 "most_viewed": NewsSerializer(most_viewed, many=True, context={'request': request}).data,
-                "latest_news": NewsSerializer(latest_news, many=True,context={'request': request}).data
+                "ads": AdvertisementSerializer(ads, many=True).data,
             }
 
             cache.set(cache_key, data, timeout=CACHE_TTL)
             return self.success_response(data)
+
         except Exception as e:
-            logger.error(f"Error fetching subcategory page {subcategory_id}: {str(e)}")
+            logger.error(f"Error fetching subcategory page {subcategory_id}: {str(e)}", exc_info=True)
             return self.error_response("Failed to fetch subcategory page")

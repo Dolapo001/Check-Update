@@ -9,6 +9,7 @@ JAZZMIN_SETTINGS = {
     "welcome_sign": "Welcome to the Content Management System",
     "copyright": " Ltd 2025",
 
+
     "topmenu_links": [
         {"name": "Dashboard", "url": "admin:dashboard", "permissions": ["auth.view_user"]},
         {"name": "Site Home", "url": "/", "new_window": True},
@@ -52,5 +53,5 @@ JAZZMIN_SETTINGS = {
 
     "related_modal_active": True,
     "custom_css": "css/admin-custom.css",
-    "user_avatar": "avatar",
+    "user_avatar": None,
 }
