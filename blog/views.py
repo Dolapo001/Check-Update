@@ -1,4 +1,7 @@
 import logging
+
+from django.contrib.postgres.search import SearchVector, SearchRank, SearchQuery
+from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -12,7 +15,6 @@ from .serializers import *
 
 logger = logging.getLogger(__name__)
 
-# default TTL (seconds) - can be overridden via settings.CACHE_TTL
 CACHE_TTL = getattr(settings, "CACHE_TTL", 60)
 
 
@@ -302,3 +304,139 @@ class SubCategoryPageView(BaseAPIView):
         except Exception as e:
             logger.error(f"Error fetching subcategory page {subcategory_id}: {str(e)}", exc_info=True)
             return self.error_response("Failed to fetch subcategory page")
+
+
+class SearchAPIView(APIView):
+    """
+    Comprehensive search endpoint for news, categories, and subcategories
+    """
+
+    def get(self, request):
+        search_query = request.query_params.get('q', '').strip()
+        category_filter = request.query_params.get('category', None)
+        subcategory_filter = request.query_params.get('subcategory', None)
+        is_top_story = request.query_params.get('is_top_story', None)
+        is_foreign = request.query_params.get('is_foreign', None)
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+
+        if not search_query:
+            return Response(
+                {"error": "Search query parameter 'q' is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Calculate offset for pagination
+        offset = (page - 1) * page_size
+
+        # Search News with full-text search capabilities
+        news_queryset = self.search_news(
+            search_query,
+            category_filter,
+            subcategory_filter,
+            is_top_story,
+            is_foreign
+        )
+
+        # Search Categories
+        categories_queryset = self.search_categories(search_query)
+
+        # Search SubCategories
+        subcategories_queryset = self.search_subcategories(search_query)
+
+        # Apply pagination to news
+        paginated_news = news_queryset[offset:offset + page_size]
+
+        # Prepare response data
+        response_data = {
+            'news': paginated_news,
+            'categories': categories_queryset,
+            'subcategories': subcategories_queryset,
+            'total_results': news_queryset.count() + categories_queryset.count() + subcategories_queryset.count(),
+            'news_count': news_queryset.count(),
+            'categories_count': categories_queryset.count(),
+            'subcategories_count': subcategories_queryset.count(),
+            'current_page': page,
+            'page_size': page_size,
+            'total_pages': (news_queryset.count() + page_size - 1) // page_size,
+            'search_query': search_query
+        }
+
+        serializer = SearchResultsSerializer(
+            response_data,
+            context={'request': request}
+        )
+
+        return Response(serializer.data)
+
+    def search_news(self, query, category_filter=None, subcategory_filter=None,
+                    is_top_story=None, is_foreign=None):
+        """
+        Search news with various filters and full-text search
+        """
+        # Start with base queryset - REMOVED is_active=True filter
+        queryset = News.objects.select_related(
+            'subcategory', 'subcategory__category', 'author'
+        ).prefetch_related('bookmarks')
+
+        # Use PostgreSQL full-text search if available, otherwise use icontains
+        try:
+            # PostgreSQL full-text search
+            search_vector = SearchVector('title', weight='A') + \
+                            SearchVector('content', weight='B') + \
+                            SearchVector('excerpt', weight='C')
+            search_query = SearchQuery(query)
+
+            queryset = queryset.annotate(
+                search=search_vector,
+                rank=SearchRank(search_vector, search_query)
+            ).filter(
+                Q(search=search_query) |
+                Q(title__icontains=query) |
+                Q(content__icontains=query) |
+                Q(excerpt__icontains=query)
+            ).order_by('-rank', '-created')
+
+        except Exception:
+            # Fallback to basic search if PostgreSQL search is not available
+            queryset = queryset.filter(
+                Q(title__icontains=query) |
+                Q(content__icontains=query) |
+                Q(excerpt__icontains=query)
+            ).order_by('-created')
+
+        # Apply filters
+        if category_filter:
+            queryset = queryset.filter(subcategory__category__slug=category_filter)
+
+        if subcategory_filter:
+            queryset = queryset.filter(subcategory__slug=subcategory_filter)
+
+        if is_top_story is not None:
+            queryset = queryset.filter(is_top_story=is_top_story.lower() == 'true')
+
+        if is_foreign is not None:
+            queryset = queryset.filter(is_foreign=is_foreign.lower() == 'true')
+
+        return queryset
+
+    def search_categories(self, query):
+        """
+        Search categories by name
+        """
+        # REMOVED is_active=True filter if Category model doesn't have it
+        return Category.objects.filter(
+            Q(name__icontains=query) |
+            Q(slug__icontains=query)
+        )
+
+    def search_subcategories(self, query):
+        """
+        Search subcategories by name
+        """
+        # REMOVED is_active=True filter if SubCategory model doesn't have it
+        return SubCategory.objects.select_related('category').filter(
+            Q(name__icontains=query) |
+            Q(slug__icontains=query) |
+            Q(category__name__icontains=query)
+        )

@@ -15,4 +15,6 @@ urlpatterns = [
     re_path(r'^categories/(?P<category_id>[0-9a-f-]+)/page/$', CategoryPageView.as_view(), name='category-page'),
     re_path(r'^subcategories/(?P<subcategory_id>[0-9a-f-]+)/$', SubCategoryDetailView.as_view(), name='subcategory-detail'),
     re_path(r'^subcategories/(?P<subcategory_id>[0-9a-f-]+)/page/$', SubCategoryPageView.as_view(), name='subcategory-page'),
+    path('search/', SearchAPIView.as_view(), name='search'),
+
 ]
