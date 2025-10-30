@@ -73,3 +73,23 @@ class SearchResultsSerializer(serializers.Serializer):
     news_count = serializers.IntegerField(read_only=True)
     categories_count = serializers.IntegerField(read_only=True)
     subcategories_count = serializers.IntegerField(read_only=True)
+    media = serializers.SerializerMethodField()
+
+    def get_media(self, obj):
+        """
+        Aggregate media details from the news results.
+        Returns a list of dicts with URL, type, and associated news slug for frontend use.
+        """
+        request = self.context.get('request')
+        if not request:
+            return []  # Fallback if no request context
+
+        media_list = []
+        for news_item in obj['news']:
+            if news_item.media:
+                media_list.append({
+                    'url': request.build_absolute_uri(news_item.media.url),
+                    'type': news_item.media_type,
+                    'news_slug': news_item.slug  # Or use ID if preferred
+                })
+        return media_list

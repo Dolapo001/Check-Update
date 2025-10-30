@@ -308,85 +308,75 @@ class SubCategoryPageView(BaseAPIView):
 
 class SearchAPIView(APIView):
     """
-    Comprehensive search endpoint for news, categories, and subcategories
+    Comprehensive search endpoint for news, categories, and subcategories.
+    Supports full-text search, filters, and pagination on news.
     """
 
     def get(self, request):
         search_query = request.query_params.get('q', '').strip()
-        category_filter = request.query_params.get('category', None)
-        subcategory_filter = request.query_params.get('subcategory', None)
-        is_top_story = request.query_params.get('is_top_story', None)
-        is_foreign = request.query_params.get('is_foreign', None)
-        page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 20))
-
         if not search_query:
             return Response(
                 {"error": "Search query parameter 'q' is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Calculate offset for pagination
-        offset = (page - 1) * page_size
+        category_filter = request.query_params.get('category')
+        subcategory_filter = request.query_params.get('subcategory')
+        is_top_story = request.query_params.get('is_top_story')
+        is_foreign = request.query_params.get('is_foreign')
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
 
-        # Search News with full-text search capabilities
+        # Search querysets
         news_queryset = self.search_news(
-            search_query,
-            category_filter,
-            subcategory_filter,
-            is_top_story,
-            is_foreign
+            search_query, category_filter, subcategory_filter, is_top_story, is_foreign
         )
-
-        # Search Categories
         categories_queryset = self.search_categories(search_query)
-
-        # Search SubCategories
         subcategories_queryset = self.search_subcategories(search_query)
 
-        # Apply pagination to news
-        paginated_news = news_queryset[offset:offset + page_size]
+        # Paginate news using Django's Paginator for efficiency
+        paginator = Paginator(news_queryset, page_size)
+        paginated_news = paginator.get_page(page).object_list
 
-        # Prepare response data
+        # Counts (computed once to avoid redundant queries)
+        news_count = paginator.count
+        categories_count = categories_queryset.count()
+        subcategories_count = subcategories_queryset.count()
+
+        # Prepare data dict for serialization
         response_data = {
             'news': paginated_news,
             'categories': categories_queryset,
             'subcategories': subcategories_queryset,
-            'total_results': news_queryset.count() + categories_queryset.count() + subcategories_queryset.count(),
-            'news_count': news_queryset.count(),
-            'categories_count': categories_queryset.count(),
-            'subcategories_count': subcategories_queryset.count(),
+            'total_results': news_count + categories_count + subcategories_count,
+            'news_count': news_count,
+            'categories_count': categories_count,
+            'subcategories_count': subcategories_count,
             'current_page': page,
             'page_size': page_size,
-            'total_pages': (news_queryset.count() + page_size - 1) // page_size,
+            'total_pages': paginator.num_pages,
             'search_query': search_query
         }
 
-        serializer = SearchResultsSerializer(
-            response_data,
-            context={'request': request}
-        )
-
+        serializer = SearchResultsSerializer(response_data, context={'request': request})
         return Response(serializer.data)
 
     def search_news(self, query, category_filter=None, subcategory_filter=None,
                     is_top_story=None, is_foreign=None):
         """
-        Search news with various filters and full-text search
+        Search news with filters and full-text search (PostgreSQL preferred).
         """
-        # Start with base queryset - REMOVED is_active=True filter
         queryset = News.objects.select_related(
             'subcategory', 'subcategory__category', 'author'
         ).prefetch_related('bookmarks')
 
-        # Use PostgreSQL full-text search if available, otherwise use icontains
-        try:
+        from django.db import connection
+        if connection.vendor == 'postgresql':
             # PostgreSQL full-text search
             search_vector = SearchVector('title', weight='A') + \
                             SearchVector('content', weight='B') + \
                             SearchVector('excerpt', weight='C')
             search_query = SearchQuery(query)
-
             queryset = queryset.annotate(
                 search=search_vector,
                 rank=SearchRank(search_vector, search_query)
@@ -396,9 +386,8 @@ class SearchAPIView(APIView):
                 Q(content__icontains=query) |
                 Q(excerpt__icontains=query)
             ).order_by('-rank', '-created')
-
-        except Exception:
-            # Fallback to basic search if PostgreSQL search is not available
+        else:
+            # Fallback for other DBs
             queryset = queryset.filter(
                 Q(title__icontains=query) |
                 Q(content__icontains=query) |
@@ -408,13 +397,10 @@ class SearchAPIView(APIView):
         # Apply filters
         if category_filter:
             queryset = queryset.filter(subcategory__category__slug=category_filter)
-
         if subcategory_filter:
             queryset = queryset.filter(subcategory__slug=subcategory_filter)
-
         if is_top_story is not None:
             queryset = queryset.filter(is_top_story=is_top_story.lower() == 'true')
-
         if is_foreign is not None:
             queryset = queryset.filter(is_foreign=is_foreign.lower() == 'true')
 
@@ -422,19 +408,16 @@ class SearchAPIView(APIView):
 
     def search_categories(self, query):
         """
-        Search categories by name
+        Search categories by name or slug.
         """
-        # REMOVED is_active=True filter if Category model doesn't have it
         return Category.objects.filter(
-            Q(name__icontains=query) |
-            Q(slug__icontains=query)
+            Q(name__icontains=query) | Q(slug__icontains=query)
         )
 
     def search_subcategories(self, query):
         """
-        Search subcategories by name
+        Search subcategories by name, slug, or parent category name.
         """
-        # REMOVED is_active=True filter if SubCategory model doesn't have it
         return SubCategory.objects.select_related('category').filter(
             Q(name__icontains=query) |
             Q(slug__icontains=query) |
