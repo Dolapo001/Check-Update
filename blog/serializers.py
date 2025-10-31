@@ -46,23 +46,37 @@ class AdvertisementSerializer(serializers.ModelSerializer):
 
 
 class NewsSearchSerializer(serializers.ModelSerializer):
-    subcategory = SubCategorySerializer(read_only=True)
-    is_bookmarked = serializers.SerializerMethodField()
+    media_url = serializers.SerializerMethodField()  # Custom field for absolute URL
 
     class Meta:
         model = News
         fields = [
-            'id', 'title', 'slug', 'excerpt', 'content',
-            'media', 'media_type', 'subcategory',
-            'is_foreign', 'is_top_story', 'views', 'is_bookmarked',
-            'created', 'updated'
+            'id',  # Include if needed for uniqueness
+            'title',
+            'slug',
+            'excerpt',
+            'media_url',  # Our new field
+            'media_type',
+            'subcategory',  # Or nested serializer if needed
+            'author',  # Or nested if UserSerializer exists
+            'is_foreign',
+            'is_top_story',
+            'views',
+            # Add other fields as required (e.g., 'created', 'bookmarks' as list of IDs)
         ]
+        read_only_fields = fields  # All read-only for search results
 
-    def get_is_bookmarked(self, obj):
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            return obj.bookmarks.filter(id=request.user.id).exists()
-        return False
+    def get_media_url(self, obj):
+        """
+        Returns the absolute URL of the media file if it exists.
+        Uses request context for domain/protocol resolution.
+        """
+        if obj.media:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.media.url)
+            return obj.media.url  # Fallback to relative URL
+        return None  # Or '' if preferred for consistency
 
 
 class SearchResultsSerializer(serializers.Serializer):
@@ -73,23 +87,4 @@ class SearchResultsSerializer(serializers.Serializer):
     news_count = serializers.IntegerField(read_only=True)
     categories_count = serializers.IntegerField(read_only=True)
     subcategories_count = serializers.IntegerField(read_only=True)
-    media = serializers.SerializerMethodField()
 
-    def get_media(self, obj):
-        """
-        Aggregate media details from the news results.
-        Returns a list of dicts with URL, type, and associated news slug for frontend use.
-        """
-        request = self.context.get('request')
-        if not request:
-            return []  # Fallback if no request context
-
-        media_list = []
-        for news_item in obj['news']:
-            if news_item.media:
-                media_list.append({
-                    'url': request.build_absolute_uri(news_item.media.url),
-                    'type': news_item.media_type,
-                    'news_slug': news_item.slug  # Or use ID if preferred
-                })
-        return media_list
