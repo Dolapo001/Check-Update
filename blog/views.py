@@ -40,6 +40,7 @@ class CustomPagination(PageNumberPagination):
             },
         }
 
+
 class BaseAPIView(APIView):
     def success_response(self, data, message="Success", status_code=status.HTTP_200_OK):
         return Response({
@@ -104,73 +105,110 @@ class NewsDetailView(BaseAPIView):
 
 class LatestNewsView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
-        limit = int(request.GET.get('limit', 10))
-        cache_key = f"news:latest:limit={limit}"
-        return self.get_cached_news(
-            cache_key,
-            News.objects.get_latest,
-            NewsSerializer,
-            limit,
-            {'request': request},
-            CACHE_TTL
+        queryset = News.objects.get_latest()  # Assume this returns full queryset; refactor if it takes limit
+
+        # Generate cache key based on params
+        page = request.query_params.get('page')
+        page_size = request.query_params.get('page_size')
+        limit = request.query_params.get('limit')
+        cache_key = f"news:latest:page={page}:size={page_size}:limit={limit}"
+
+        # Check cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return self.success_response(cached_data)
+
+        # Use helper to paginate or limit
+        response = self.maybe_paginate_or_limit(
+            request, queryset, NewsSerializer, default_limit=10
         )
+
+        # Cache the data part
+        cache.set(cache_key, response.data['data'], timeout=CACHE_TTL)
+        return response
 
 
 class TrendingNewsView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
-        limit = int(request.GET.get('limit', 10))
-        cache_key = f"news:trending:limit={limit}"
-        return self.get_cached_news(
-            cache_key,
-            News.objects.get_trending,
-            NewsSerializer,
-            limit,
-            {'request': request},
-            CACHE_TTL
+        queryset = News.objects.get_trending()  # Assume full queryset
+
+        page = request.query_params.get('page')
+        page_size = request.query_params.get('page_size')
+        limit = request.query_params.get('limit')
+        cache_key = f"news:trending:page={page}:size={page_size}:limit={limit}"
+
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return self.success_response(cached_data)
+
+        response = self.maybe_paginate_or_limit(
+            request, queryset, NewsSerializer, default_limit=10
         )
+        cache.set(cache_key, response.data['data'], timeout=CACHE_TTL)
+        return response
 
 
 class TopStoriesView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
-        limit = int(request.GET.get('limit', 10))
-        cache_key = f"news:topstories:limit={limit}"
-        return self.get_cached_news(
-            cache_key,
-            News.objects.get_top_stories,
-            NewsSerializer,
-            limit,
-            {'request': request},
-            CACHE_TTL
+        queryset = News.objects.get_top_stories()  # Assume full queryset
+
+        page = request.query_params.get('page')
+        page_size = request.query_params.get('page_size')
+        limit = request.query_params.get('limit')
+        cache_key = f"news:topstories:page={page}:size={page_size}:limit={limit}"
+
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return self.success_response(cached_data)
+
+        response = self.maybe_paginate_or_limit(
+            request, queryset, NewsSerializer, default_limit=10
         )
+        cache.set(cache_key, response.data['data'], timeout=CACHE_TTL)
+        return response
 
 
 class MostWatchedView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
-        limit = int(request.GET.get('limit', 10))
-        cache_key = f"news:mostwatched:limit={limit}"
-        return self.get_cached_news(
-            cache_key,
-            News.objects.get_most_watched_videos,
-            NewsSerializer,
-            limit,
-            {'request': request},
-            CACHE_TTL
+        queryset = News.objects.get_most_watched_videos()  # Assume full queryset
+
+        page = request.query_params.get('page')
+        page_size = request.query_params.get('page_size')
+        limit = request.query_params.get('limit')
+        cache_key = f"news:mostwatched:page={page}:size={page_size}:limit={limit}"
+
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return self.success_response(cached_data)
+
+        response = self.maybe_paginate_or_limit(
+            request, queryset, NewsSerializer, default_limit=10
         )
+        cache.set(cache_key, response.data['data'], timeout=CACHE_TTL)
+        return response
 
 
 class RecommendedNewsView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
-        limit = int(request.GET.get('limit', 10))
+        queryset = News.objects.get_recommended(request.user)  # Assume full queryset; remove limit if present
+
         user_part = f"user={getattr(request.user, 'id', 'anon')}"
-        cache_key = f"news:recommended:{user_part}:limit={limit}"
-        return self.get_cached_news(
-            cache_key,
-            lambda limit: News.objects.get_recommended(request.user, limit),
-            NewsSerializer,
-            limit,
-            {'request': request},
-            CACHE_TTL
+        page = request.query_params.get('page')
+        page_size = request.query_params.get('page_size')
+        limit = request.query_params.get('limit')
+        cache_key = f"news:recommended:{user_part}:page={page}:size={page_size}:limit={limit}"
+
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return self.success_response(cached_data)
+
+        response = self.maybe_paginate_or_limit(
+            request, queryset, NewsSerializer, default_limit=10
         )
+        cache.set(cache_key, response.data['data'], timeout=CACHE_TTL)
+        return response
+
+
 class BookmarkNewsView(BaseAPIView):
     def post(self, request, news_id):
         try:
@@ -284,15 +322,6 @@ class CategoryPageView(BaseAPIView):
             return self.error_response("Failed to fetch category page")
 
 
-from rest_framework.pagination import PageNumberPagination
-
-
-class CustomPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = 'page_size'
-    max_page_size = 100
-
-
 class SubCategoryPageView(BaseAPIView):
     def get(self, request, subcategory_id):
         try:
@@ -313,12 +342,25 @@ class SubCategoryPageView(BaseAPIView):
             excerpt_serializer = NewsSerializer(paginated_excerpt, many=True, context={'request': request})
 
             # ---- Other News Sections (Scoped to SubCategory) ----
-            top_news = News.objects.get_most_viewed(subcategory=subcategory, limit=5)
-            hot_stories = News.objects.get_hot_stories_this_week(subcategory=subcategory)
-            foreign_news = News.objects.get_foreign_news(subcategory=subcategory, is_foreign=True)
-            local_news = News.objects.get_foreign_news(subcategory=subcategory, is_foreign=False)
-            most_viewed = News.objects.get_most_viewed(subcategory=subcategory)
-            latest_news = News.objects.get_latest(subcategory=subcategory)
+            # Refactored to use full querysets and maybe_paginate_or_limit for consistency
+            # Extract data only (list or paginated dict)
+            top_qs = News.objects.get_most_viewed(subcategory=subcategory)  # Assume full QS
+            top_data = self.maybe_paginate_or_limit(request, top_qs, NewsSerializer, default_limit=5).data['data']
+
+            hot_qs = News.objects.get_hot_stories_this_week(subcategory=subcategory)  # Assume full
+            hot_data = self.maybe_paginate_or_limit(request, hot_qs, NewsSerializer, default_limit=10).data['data']
+
+            foreign_qs = News.objects.get_foreign_news(subcategory=subcategory, is_foreign=True)  # Assume full
+            foreign_data = self.maybe_paginate_or_limit(request, foreign_qs, NewsSerializer, default_limit=10).data['data']
+
+            local_qs = News.objects.get_foreign_news(subcategory=subcategory, is_foreign=False)  # Assume full
+            local_data = self.maybe_paginate_or_limit(request, local_qs, NewsSerializer, default_limit=10).data['data']
+
+            most_viewed_qs = News.objects.get_most_viewed(subcategory=subcategory)  # Assume full
+            most_viewed_data = self.maybe_paginate_or_limit(request, most_viewed_qs, NewsSerializer, default_limit=10).data['data']
+
+            latest_qs = News.objects.get_latest(subcategory=subcategory)  # Assume full
+            latest_data = self.maybe_paginate_or_limit(request, latest_qs, NewsSerializer, default_limit=10).data['data']
 
             # ---- Ads (fallback to category/global if subcategory ads are few) ----
             ads = Advertisement.objects.filter(
@@ -344,12 +386,12 @@ class SubCategoryPageView(BaseAPIView):
                         "total_pages": paginator.page.paginator.num_pages,
                     },
                 },
-                "latest_news": NewsSerializer(latest_news, many=True, context={'request': request}).data,
-                "top_news": NewsSerializer(top_news, many=True, context={'request': request}).data,
-                "hot_stories": NewsSerializer(hot_stories, many=True, context={'request': request}).data,
-                "foreign_news": NewsSerializer(foreign_news, many=True, context={'request': request}).data,
-                "local_news": NewsSerializer(local_news, many=True, context={'request': request}).data,
-                "most_viewed": NewsSerializer(most_viewed, many=True, context={'request': request}).data,
+                "latest_news": latest_data,
+                "top_news": top_data,
+                "hot_stories": hot_data,
+                "foreign_news": foreign_data,
+                "local_news": local_data,
+                "most_viewed": most_viewed_data,
                 "ads": AdvertisementSerializer(ads, many=True).data,
             }
 
