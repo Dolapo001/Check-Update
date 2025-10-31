@@ -13,6 +13,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
+#from celery.schedules import crontab
 from corsheaders.defaults import default_headers
 from dotenv import load_dotenv
 import os
@@ -97,7 +98,7 @@ REST_FRAMEWORK = {
     "COERCE_DECIMAL_TO_STRING": False,
     #"EXCEPTION_HANDLER": "apps.common.exception_handler.CustomExceptionHandler.handle",  # noqa
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 30,
+    "PAGE_SIZE": 20,
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_CLASSES": [
@@ -416,6 +417,51 @@ LOGGING = {
         },
     },
 }
+# # Celery Configuration
+# CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+# CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_RESULT_SERIALIZER = 'json'
+# CELERY_TIMEZONE = 'UTC'  # or your preferred timezone
+#
+# # Celery Task Configuration
+# CELERY_TASK_ALWAYS_EAGER = False  # Set to True for development (synchronous execution)
+# CELERY_TASK_EAGER_PROPAGATES = True
+# CELERY_TASK_CREATE_MISSING_QUEUES = True
+# CELERY_TASK_DEFAULT_QUEUE = 'default'
+#
+# # Task specific settings
+# CELERY_TASK_ROUTES = {
+#     'blog.tasks.send_news_notification': {'queue': 'email'},
+#     'blog.tasks.send_newsletter': {'queue': 'email'},
+# }
+#
+# # Retry configuration
+# CELERY_TASK_ANNOTATIONS = {
+#     'blog.tasks.send_news_notification': {
+#         'max_retries': 3,
+#         'default_retry_delay': 300,  # 5 minutes
+#     },
+#     'blog.tasks.send_newsletter': {
+#         'max_retries': 3,
+#         'default_retry_delay': 300,
+#     },
+# }
+#
+# # Beat Schedule for periodic tasks (if needed)
+# CELERY_BEAT_SCHEDULE = {
+#     # Example: Send weekly newsletter every Monday at 9 AM
+#     'send-weekly-newsletter': {
+#         'task': 'blog.tasks.send_weekly_digest',
+#         'schedule': crontab(hour=9, minute=0, day_of_week=1),
+#     },
+#     # Example: Clean up old tasks every day at midnight
+#     'cleanup-old-tasks': {
+#         'task': 'blog.tasks.cleanup_old_task_results',
+#         'schedule': crontab(hour=0, minute=0),
+#     },
+# }
 
 # Report-only CSP for development or testing purposes (doesn’t block, only reports)  # noqa
 # CONTENT_SECURITY_POLICY_REPORT_ONLY = {
