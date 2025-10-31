@@ -9,7 +9,8 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.core.cache import cache
-
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.request import Request
 from .mixin import CachedNewsMixin
 from .models import *
 from .serializers import *
@@ -18,6 +19,26 @@ logger = logging.getLogger(__name__)
 
 CACHE_TTL = getattr(settings, "CACHE_TTL", 60)
 
+
+class CustomPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+    page_query_param = 'page'
+
+    def get_paginated_response_data(self, data):
+        # returns a plain dict (we'll wrap with success_response in view)
+        return {
+            "results": data,
+            "pagination": {
+                "count": self.page.paginator.count,
+                "next": self.get_next_link(),
+                "previous": self.get_previous_link(),
+                "current_page": self.page.number,
+                "total_pages": self.page.paginator.num_pages,
+                "page_size": self.get_page_size(self.request),
+            },
+        }
 
 class BaseAPIView(APIView):
     def success_response(self, data, message="Success", status_code=status.HTTP_200_OK):
@@ -33,6 +54,39 @@ class BaseAPIView(APIView):
             "message": message,
             "data": None
         }, status=status_code)
+
+    def paginate_queryset_and_respond(self, request: Request, queryset, serializer_class, many=True, message="Success",
+                                      status_code=status.HTTP_200_OK):
+        """
+        Paginate a queryset using CustomPagination and return success_response.
+        """
+
+        paginator = CustomPagination()
+        paginated_qs = paginator.paginate_queryset(queryset, request, view=self)
+        serializer = serializer_class(paginated_qs, many=many, context={'request': request})
+        data = paginator.get_paginated_response_data(serializer.data)
+        return self.success_response(data, message=message, status_code=status_code)
+
+    def maybe_paginate_or_limit(self, request: Request, queryset, serializer_class, default_limit=10):
+        """
+        Helper that chooses between pagination (if 'page' param present) or
+        limit (if 'limit' param present). Returns a Response (success_response).
+        """
+        page = request.query_params.get('page', None)
+        limit = request.query_params.get('limit', None)
+
+        if page is not None:
+            # use pagination
+            return self.paginate_queryset_and_respond(request, queryset, serializer_class)
+        else:
+            # fallback to limit (keep old behaviour)
+            try:
+                limit_val = int(limit) if limit is not None else default_limit
+            except ValueError:
+                limit_val = default_limit
+            sliced = queryset[:limit_val]
+            serializer = serializer_class(sliced, many=True, context={'request': request})
+            return self.success_response(serializer.data)
 
 
 class NewsDetailView(BaseAPIView):
@@ -308,119 +362,54 @@ class SubCategoryPageView(BaseAPIView):
 
 
 class SearchAPIView(APIView):
-    """
-    Comprehensive search endpoint for news, categories, and subcategories.
-    Supports full-text search, filters, and pagination on news.
-    """
-
     def get(self, request):
         search_query = request.query_params.get('q', '').strip()
         if not search_query:
-            return Response(
-                {"error": "Search query parameter 'q' is required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Search query parameter 'q' is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         category_filter = request.query_params.get('category')
         subcategory_filter = request.query_params.get('subcategory')
         is_top_story = request.query_params.get('is_top_story')
         is_foreign = request.query_params.get('is_foreign')
-        page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 20))
 
-        # Search querysets
-        news_queryset = self.search_news(
-            search_query, category_filter, subcategory_filter, is_top_story, is_foreign
-        )
+        # build querysets
+        news_queryset = self.search_news(search_query, category_filter, subcategory_filter, is_top_story, is_foreign)
         categories_queryset = self.search_categories(search_query)
         subcategories_queryset = self.search_subcategories(search_query)
 
-        # Paginate news using Django's Paginator for efficiency
-        paginator = Paginator(news_queryset, page_size)
-        paginated_news = paginator.get_page(page).object_list
+        # paginate news using CustomPagination
+        paginator = CustomPagination()
+        paginated_news = paginator.paginate_queryset(news_queryset, request, view=self)
+        news_serializer = NewsSerializer(paginated_news, many=True, context={'request': request})
 
-        # Counts (computed once to avoid redundant queries)
-        news_count = paginator.count
+        # counts
+        news_count = news_queryset.count()
         categories_count = categories_queryset.count()
         subcategories_count = subcategories_queryset.count()
 
-        # Prepare data dict for serialization
-        response_data = {
-            'news': paginated_news,
-            'categories': categories_queryset,
-            'subcategories': subcategories_queryset,
+        data = {
+            'news': {
+                "results": news_serializer.data,
+                "pagination": {
+                    "count": paginator.page.paginator.count if paginator.page is not None else news_count,
+                    "next": paginator.get_next_link(),
+                    "previous": paginator.get_previous_link(),
+                    "current_page": paginator.page.number if paginator.page is not None else 1,
+                    "total_pages": paginator.page.paginator.num_pages if paginator.page is not None else 1,
+                    "page_size": paginator.get_page_size(request)
+                }
+            },
+            'categories': CategorySerializer(categories_queryset, many=True, context={'request': request}).data,
+            'subcategories': SubCategorySerializer(subcategories_queryset, many=True, context={'request': request}).data,
             'total_results': news_count + categories_count + subcategories_count,
             'news_count': news_count,
             'categories_count': categories_count,
             'subcategories_count': subcategories_count,
-            'current_page': page,
-            'page_size': page_size,
-            'total_pages': paginator.num_pages,
+            'current_page': paginator.page.number if paginator.page is not None else 1,
+            'page_size': paginator.get_page_size(request),
+            'total_pages': paginator.page.paginator.num_pages if paginator.page is not None else 1,
             'search_query': search_query
         }
 
-        serializer = SearchResultsSerializer(response_data, context={'request': request})
+        serializer = SearchResultsSerializer(data, context={'request': request})
         return Response(serializer.data)
-
-    def search_news(self, query, category_filter=None, subcategory_filter=None,
-                    is_top_story=None, is_foreign=None):
-        """
-        Search news with filters and full-text search (PostgreSQL preferred).
-        """
-        queryset = News.objects.select_related(
-            'subcategory', 'subcategory__category', 'author'
-        ).prefetch_related('bookmarks')
-
-        from django.db import connection
-        if connection.vendor == 'postgresql':
-            # PostgreSQL full-text search
-            search_vector = SearchVector('title', weight='A') + \
-                            SearchVector('content', weight='B') + \
-                            SearchVector('excerpt', weight='C')
-            search_query = SearchQuery(query)
-            queryset = queryset.annotate(
-                search=search_vector,
-                rank=SearchRank(search_vector, search_query)
-            ).filter(
-                Q(search=search_query) |
-                Q(title__icontains=query) |
-                Q(content__icontains=query) |
-                Q(excerpt__icontains=query)
-            ).order_by('-rank', '-created')
-        else:
-            # Fallback for other DBs
-            queryset = queryset.filter(
-                Q(title__icontains=query) |
-                Q(content__icontains=query) |
-                Q(excerpt__icontains=query)
-            ).order_by('-created')
-
-        # Apply filters
-        if category_filter:
-            queryset = queryset.filter(subcategory__category__slug=category_filter)
-        if subcategory_filter:
-            queryset = queryset.filter(subcategory__slug=subcategory_filter)
-        if is_top_story is not None:
-            queryset = queryset.filter(is_top_story=is_top_story.lower() == 'true')
-        if is_foreign is not None:
-            queryset = queryset.filter(is_foreign=is_foreign.lower() == 'true')
-
-        return queryset
-
-    def search_categories(self, query):
-        """
-        Search categories by name or slug.
-        """
-        return Category.objects.filter(
-            Q(name__icontains=query) | Q(slug__icontains=query)
-        )
-
-    def search_subcategories(self, query):
-        """
-        Search subcategories by name, slug, or parent category name.
-        """
-        return SubCategory.objects.select_related('category').filter(
-            Q(name__icontains=query) |
-            Q(slug__icontains=query) |
-            Q(category__name__icontains=query)
-        )
