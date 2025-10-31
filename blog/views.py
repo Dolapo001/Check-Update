@@ -27,18 +27,26 @@ class CustomPagination(PageNumberPagination):
     page_query_param = 'page'
 
     def get_paginated_response_data(self, data):
-        # returns a plain dict (we'll wrap with success_response in view)
+        """
+        Return a plain dict (not a Response) with consistent structure.
+        """
+        # defensive: ensure paginator.page exists
+        total_count = getattr(self.page, 'paginator', None).count if getattr(self, 'page', None) else 0
+        total_pages = getattr(self.page, 'paginator', None).num_pages if getattr(self, 'page', None) else 1
+        current_page = self.page.number if getattr(self, 'page', None) else 1
+
         return {
             "results": data,
             "pagination": {
-                "count": self.page.paginator.count,
+                "count": total_count,
                 "next": self.get_next_link(),
                 "previous": self.get_previous_link(),
-                "current_page": self.page.number,
-                "total_pages": self.page.paginator.num_pages,
+                "current_page": current_page,
+                "total_pages": total_pages,
                 "page_size": self.get_page_size(self.request),
             },
         }
+
 
 
 class BaseAPIView(APIView):
@@ -56,38 +64,58 @@ class BaseAPIView(APIView):
             "data": None
         }, status=status_code)
 
-    def paginate_queryset_and_respond(self, request: Request, queryset, serializer_class, many=True, message="Success",
-                                      status_code=status.HTTP_200_OK):
+    def paginate_queryset_and_respond(self, request: Request, queryset, serializer_class, many=True,
+                                      message="Success", status_code=status.HTTP_200_OK):
         """
         Paginate a queryset using CustomPagination and return success_response.
         """
-
         paginator = CustomPagination()
         paginated_qs = paginator.paginate_queryset(queryset, request, view=self)
+        # Note: paginate_queryset always sets paginator.request internally
         serializer = serializer_class(paginated_qs, many=many, context={'request': request})
         data = paginator.get_paginated_response_data(serializer.data)
         return self.success_response(data, message=message, status_code=status_code)
 
     def maybe_paginate_or_limit(self, request: Request, queryset, serializer_class, default_limit=10):
         """
-        Helper that chooses between pagination (if 'page' param present) or
-        limit (if 'limit' param present). Returns a Response (success_response).
+        If 'page' param exists -> full pagination.
+        Otherwise return a consistent limited structure with pagination metadata.
         """
         page = request.query_params.get('page', None)
         limit = request.query_params.get('limit', None)
 
         if page is not None:
-            # use pagination
+            # use pagination (page param present)
             return self.paginate_queryset_and_respond(request, queryset, serializer_class)
         else:
-            # fallback to limit (keep old behaviour)
+            # limit branch: return same response shape as pagination for front-end consistency
             try:
                 limit_val = int(limit) if limit is not None else default_limit
             except ValueError:
                 limit_val = default_limit
+
             sliced = queryset[:limit_val]
             serializer = serializer_class(sliced, many=True, context={'request': request})
-            return self.success_response(serializer.data)
+
+            # Build consistent pagination metadata for limit (no next / prev links)
+            total_count = queryset.count()
+            page_size = len(serializer.data)
+            total_pages = 1
+            current_page = 1
+
+            data = {
+                "results": serializer.data,
+                "pagination": {
+                    "count": total_count,
+                    "next": None,
+                    "previous": None,
+                    "current_page": current_page,
+                    "total_pages": total_pages,
+                    "page_size": page_size,
+                },
+            }
+
+            return self.success_response(data)
 
 
 class NewsDetailView(BaseAPIView):
