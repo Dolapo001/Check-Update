@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib.postgres.search import SearchVector, SearchRank, SearchQuery
+from django.core.paginator import Paginator
 from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
