@@ -29,12 +29,16 @@ class CustomPagination(PageNumberPagination):
     def get_paginated_response_data(self, data):
         """
         Return a plain dict (not a Response) with consistent structure.
+        Safe if self.page is None (defensive).
         """
-        # defensive: ensure paginator.page exists
-        total_count = getattr(self.page, 'paginator', None).count if getattr(self, 'page', None) else 0
-        total_pages = getattr(self.page, 'paginator', None).num_pages if getattr(self, 'page', None) else 1
-        current_page = self.page.number if getattr(self, 'page', None) else 1
+        page_obj = getattr(self, "page", None)
+        paginator = getattr(page_obj, "paginator", None) if page_obj is not None else None
 
+        total_count = paginator.count if paginator is not None else 0
+        total_pages = paginator.num_pages if paginator is not None else 1
+        current_page = page_obj.number if page_obj is not None else 1
+
+        # DRF provides .get_next_link and .get_previous_link which build full URLs if request is set.
         return {
             "results": data,
             "pagination": {
@@ -46,6 +50,7 @@ class CustomPagination(PageNumberPagination):
                 "page_size": self.get_page_size(self.request),
             },
         }
+
 
 
 
@@ -76,46 +81,35 @@ class BaseAPIView(APIView):
         data = paginator.get_paginated_response_data(serializer.data)
         return self.success_response(data, message=message, status_code=status_code)
 
-    def maybe_paginate_or_limit(self, request: Request, queryset, serializer_class, default_limit=10):
+    def limited_queryset_and_respond(self, request: Request, queryset, serializer_class, default_limit=10,
+                                     message="Success", status_code=status.HTTP_200_OK):
         """
-        If 'page' param exists -> full pagination.
-        Otherwise return a consistent limited structure with pagination metadata.
+        Return a limited slice of the queryset with consistent paginated structure, but no actual pagination.
         """
-        page = request.query_params.get('page', None)
-        limit = request.query_params.get('limit', None)
+        try:
+            limit_val = int(request.query_params.get('limit', default_limit))
+        except ValueError:
+            limit_val = default_limit
 
-        if page is not None:
-            # use pagination (page param present)
-            return self.paginate_queryset_and_respond(request, queryset, serializer_class)
-        else:
-            # limit branch: return same response shape as pagination for front-end consistency
-            try:
-                limit_val = int(limit) if limit is not None else default_limit
-            except ValueError:
-                limit_val = default_limit
+        sliced = queryset[:limit_val]
+        serializer = serializer_class(sliced, many=True, context={'request': request})
 
-            sliced = queryset[:limit_val]
-            serializer = serializer_class(sliced, many=True, context={'request': request})
+        # Build consistent pagination metadata (fixed to page 1)
+        total_count = queryset.count()
+        page_size = len(serializer.data)
+        data = {
+            "results": serializer.data,
+            "pagination": {
+                "count": total_count,
+                "next": None,
+                "previous": None,
+                "current_page": 1,
+                "total_pages": 1,
+                "page_size": page_size,
+            },
+        }
 
-            # Build consistent pagination metadata for limit (no next / prev links)
-            total_count = queryset.count()
-            page_size = len(serializer.data)
-            total_pages = 1
-            current_page = 1
-
-            data = {
-                "results": serializer.data,
-                "pagination": {
-                    "count": total_count,
-                    "next": None,
-                    "previous": None,
-                    "current_page": current_page,
-                    "total_pages": total_pages,
-                    "page_size": page_size,
-                },
-            }
-
-            return self.success_response(data)
+        return self.success_response(data, message=message, status_code=status_code)
 
 
 class NewsDetailView(BaseAPIView):
@@ -136,18 +130,16 @@ class LatestNewsView(CachedNewsMixin, BaseAPIView):
         queryset = News.objects.get_latest()  # Assume this returns full queryset; refactor if it takes limit
 
         # Generate cache key based on params
-        page = request.query_params.get('page')
-        page_size = request.query_params.get('page_size')
         limit = request.query_params.get('limit')
-        cache_key = f"news:latest:page={page}:size={page_size}:limit={limit}"
+        cache_key = f"news:latest:limit={limit}"
 
         # Check cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return self.success_response(cached_data)
 
-        # Use helper to paginate or limit
-        response = self.maybe_paginate_or_limit(
+        # Use helper to limit
+        response = self.limited_queryset_and_respond(
             request, queryset, NewsSerializer, default_limit=10
         )
 
@@ -160,16 +152,14 @@ class TrendingNewsView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
         queryset = News.objects.get_trending()  # Assume full queryset
 
-        page = request.query_params.get('page')
-        page_size = request.query_params.get('page_size')
         limit = request.query_params.get('limit')
-        cache_key = f"news:trending:page={page}:size={page_size}:limit={limit}"
+        cache_key = f"news:trending:limit={limit}"
 
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return self.success_response(cached_data)
 
-        response = self.maybe_paginate_or_limit(
+        response = self.limited_queryset_and_respond(
             request, queryset, NewsSerializer, default_limit=10
         )
         cache.set(cache_key, response.data['data'], timeout=CACHE_TTL)
@@ -180,16 +170,14 @@ class TopStoriesView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
         queryset = News.objects.get_top_stories()  # Assume full queryset
 
-        page = request.query_params.get('page')
-        page_size = request.query_params.get('page_size')
         limit = request.query_params.get('limit')
-        cache_key = f"news:topstories:page={page}:size={page_size}:limit={limit}"
+        cache_key = f"news:topstories:limit={limit}"
 
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return self.success_response(cached_data)
 
-        response = self.maybe_paginate_or_limit(
+        response = self.limited_queryset_and_respond(
             request, queryset, NewsSerializer, default_limit=10
         )
         cache.set(cache_key, response.data['data'], timeout=CACHE_TTL)
@@ -200,16 +188,14 @@ class MostWatchedView(CachedNewsMixin, BaseAPIView):
     def get(self, request):
         queryset = News.objects.get_most_watched_videos()  # Assume full queryset
 
-        page = request.query_params.get('page')
-        page_size = request.query_params.get('page_size')
         limit = request.query_params.get('limit')
-        cache_key = f"news:mostwatched:page={page}:size={page_size}:limit={limit}"
+        cache_key = f"news:mostwatched:limit={limit}"
 
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return self.success_response(cached_data)
 
-        response = self.maybe_paginate_or_limit(
+        response = self.limited_queryset_and_respond(
             request, queryset, NewsSerializer, default_limit=10
         )
         cache.set(cache_key, response.data['data'], timeout=CACHE_TTL)
@@ -221,16 +207,14 @@ class RecommendedNewsView(CachedNewsMixin, BaseAPIView):
         queryset = News.objects.get_recommended(request.user)  # Assume full queryset; remove limit if present
 
         user_part = f"user={getattr(request.user, 'id', 'anon')}"
-        page = request.query_params.get('page')
-        page_size = request.query_params.get('page_size')
         limit = request.query_params.get('limit')
-        cache_key = f"news:recommended:{user_part}:page={page}:size={page_size}:limit={limit}"
+        cache_key = f"news:recommended:{user_part}:limit={limit}"
 
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return self.success_response(cached_data)
 
-        response = self.maybe_paginate_or_limit(
+        response = self.limited_queryset_and_respond(
             request, queryset, NewsSerializer, default_limit=10
         )
         cache.set(cache_key, response.data['data'], timeout=CACHE_TTL)
@@ -370,25 +354,30 @@ class SubCategoryPageView(BaseAPIView):
             excerpt_serializer = NewsSerializer(paginated_excerpt, many=True, context={'request': request})
 
             # ---- Other News Sections (Scoped to SubCategory) ----
-            # Refactored to use full querysets and maybe_paginate_or_limit for consistency
-            # Extract data only (list or paginated dict)
+            # Use limited responses for consistency without pagination
             top_qs = News.objects.get_most_viewed(subcategory=subcategory)  # Assume full QS
-            top_data = self.maybe_paginate_or_limit(request, top_qs, NewsSerializer, default_limit=5).data['data']
+            top_response = self.limited_queryset_and_respond(request, top_qs, NewsSerializer, default_limit=5)
+            top_data = top_response.data['data']
 
             hot_qs = News.objects.get_hot_stories_this_week(subcategory=subcategory)  # Assume full
-            hot_data = self.maybe_paginate_or_limit(request, hot_qs, NewsSerializer, default_limit=10).data['data']
+            hot_response = self.limited_queryset_and_respond(request, hot_qs, NewsSerializer, default_limit=10)
+            hot_data = hot_response.data['data']
 
             foreign_qs = News.objects.get_foreign_news(subcategory=subcategory, is_foreign=True)  # Assume full
-            foreign_data = self.maybe_paginate_or_limit(request, foreign_qs, NewsSerializer, default_limit=10).data['data']
+            foreign_response = self.limited_queryset_and_respond(request, foreign_qs, NewsSerializer, default_limit=10)
+            foreign_data = foreign_response.data['data']
 
             local_qs = News.objects.get_foreign_news(subcategory=subcategory, is_foreign=False)  # Assume full
-            local_data = self.maybe_paginate_or_limit(request, local_qs, NewsSerializer, default_limit=10).data['data']
+            local_response = self.limited_queryset_and_respond(request, local_qs, NewsSerializer, default_limit=10)
+            local_data = local_response.data['data']
 
             most_viewed_qs = News.objects.get_most_viewed(subcategory=subcategory)  # Assume full
-            most_viewed_data = self.maybe_paginate_or_limit(request, most_viewed_qs, NewsSerializer, default_limit=10).data['data']
+            most_viewed_response = self.limited_queryset_and_respond(request, most_viewed_qs, NewsSerializer, default_limit=10)
+            most_viewed_data = most_viewed_response.data['data']
 
             latest_qs = News.objects.get_latest(subcategory=subcategory)  # Assume full
-            latest_data = self.maybe_paginate_or_limit(request, latest_qs, NewsSerializer, default_limit=10).data['data']
+            latest_response = self.limited_queryset_and_respond(request, latest_qs, NewsSerializer, default_limit=10)
+            latest_data = latest_response.data['data']
 
             # ---- Ads (fallback to category/global if subcategory ads are few) ----
             ads = Advertisement.objects.filter(
