@@ -23,9 +23,9 @@ CACHE_TTL = getattr(settings, "CACHE_TTL", 60)
 
 
 class CustomPagination(PageNumberPagination):
-    page_size = 20
+    page_size = 10
     page_size_query_param = 'page_size'
-    max_page_size = 100
+    max_page_size = 20
     page_query_param = 'page'
 
     def get_paginated_response_data(self, data):
