@@ -1,4 +1,6 @@
 import logging
+from datetime import timedelta
+from math import ceil
 
 from django.contrib.postgres.search import SearchVector, SearchRank, SearchQuery
 from django.core.paginator import Paginator
@@ -334,71 +336,86 @@ class CategoryPageView(BaseAPIView):
             return self.error_response("Failed to fetch category page")
 
 
-class SubCategoryPageView(BaseAPIView):
+class SubCategoryPageView(APIView):
     def get(self, request, subcategory_id):
         try:
             page = request.GET.get('page', '1')
             page_size = request.GET.get('page_size', CustomPagination.page_size)
 
-            # Validate inputs early to fail fast
             try:
                 current_page = int(page)
                 page_size = int(page_size)
                 if current_page < 1 or page_size < 1:
                     raise ValueError
             except ValueError:
-                return self.error_response("Invalid page or page_size parameters")
+                return Response({"status": "error", "message": "Invalid page or page_size parameters"}, status=400)
 
             cache_key = f"subcategory_page:{subcategory_id}:page={page}:size={page_size}"
 
             data = cache.get(cache_key)
             if data is not None:
-                return self.success_response(data)
+                return Response({"status": "success", "message": "Success", "data": data})
 
             subcategory = get_object_or_404(SubCategory, id=subcategory_id)
 
-            # Define all paginatable news sections with their querysets
-            sections = {
-                "excerpt_news": News.objects.get_excerpt(subcategory=subcategory),
-                "latest_news": News.objects.get_latest(subcategory=subcategory),
-                "top_news": News.objects.get_most_viewed(subcategory=subcategory),
-                "hot_stories": News.objects.get_hot_stories_this_week(subcategory=subcategory),
-                "foreign_news": News.objects.get_foreign_news(subcategory=subcategory, is_foreign=True),
-                "local_news": News.objects.get_foreign_news(subcategory=subcategory, is_foreign=False),
-                "most_viewed": News.objects.get_most_viewed(subcategory=subcategory),
-                # Duplicate; consider removing if identical to top_news
-            }
+            sections = {}
+            try:
+                sections["excerpt_news"] = News.objects.filter(subcategory=subcategory).order_by('-created')
+                sections["latest_news"] = News.objects.filter(subcategory=subcategory).order_by('-created')
+                sections["top_news"] = News.objects.filter(subcategory=subcategory).order_by('-views')
+                sections["hot_stories"] = News.objects.filter(
+                    subcategory=subcategory,
+                    created__gte=timezone.now() - timedelta(days=7)
+                ).order_by('-views')
+                sections["foreign_news"] = News.objects.filter(
+                    subcategory=subcategory,
+                    is_foreign=True
+                ).order_by('-created')
+                sections["local_news"] = News.objects.filter(
+                    subcategory=subcategory,
+                    is_foreign=False
+                ).order_by('-created')
+                sections["most_viewed"] = News.objects.filter(subcategory=subcategory).order_by('-views')
+            except Exception as qs_err:
+                logger.error(f"Queryset fetch error for subcategory {subcategory_id}: {str(qs_err)}")
+                sections = {name: News.objects.none() for name in
+                            ["excerpt_news", "latest_news", "top_news", "hot_stories", "foreign_news", "local_news",
+                             "most_viewed"]}  # Empty querysets
 
-            # Paginate each section using the shared page and page_size
+            paginated_sections = ["excerpt_news", "latest_news", "foreign_news", "local_news"]
+            non_paginated_sections = ["top_news", "hot_stories", "most_viewed"]
+
+            start_index = (current_page - 1) * page_size
+            end_index = start_index + page_size
+
+            paginated_counts = {}
+            for name in paginated_sections:
+                try:
+                    paginated_counts[name] = sections[name].count()
+                except Exception:
+                    paginated_counts[name] = 0
+            max_count = max(paginated_counts.values()) if paginated_counts else 0
+            total_pages = ceil(max_count / page_size) if page_size > 0 else 1
+            count = max_count
+
             paginated_data = {}
-            paginators = {}
-            max_pages = 0
-            total_count = 0
-            max_count = 0
-            main_paginator = None
-
             for name, qs in sections.items():
-                paginator = CustomPagination()  # New instance per section to avoid state conflicts
-                paginated_items = paginator.paginate_queryset(qs, request)  # This uses the request's page/page_size
-                serializer = NewsSerializer(paginated_items, many=True, context={'request': request})
-                paginated_data[name] = serializer.data
+                try:
+                    if name in non_paginated_sections:
+                        sliced_qs = qs[:page_size]
+                    else:
+                        sliced_qs = qs[start_index:end_index]
+                except Exception as slice_err:
+                    logger.error(f"Slicing error for section {name}: {str(slice_err)}")
+                    sliced_qs = qs.none()  # Empty
 
-                num_pages = paginator.page.paginator.num_pages
-                section_count = paginator.page.paginator.count
-                max_pages = max(max_pages, num_pages)
-                total_count += section_count
+                try:
+                    serializer = NewsSerializer(sliced_qs, many=True, context={'request': request})
+                    paginated_data[name] = serializer.data
+                except Exception as ser_err:
+                    logger.error(f"Serialization error for section {name}: {str(ser_err)}")
+                    paginated_data[name] = []
 
-                # Track the "main" paginator for links (largest with max pages)
-                if num_pages == max_pages and section_count > max_count:
-                    main_paginator = paginator
-                    max_count = section_count
-
-            # If no sections, default to basics (edge case)
-            if main_paginator is None:
-                main_paginator = CustomPagination()
-                main_paginator.paginate_queryset([], request)  # Dummy for link generation
-
-            # Ads (fixed, not paginated)
             ads = Advertisement.objects.filter(
                 subcategory=subcategory, is_active=True
             )[:2]
@@ -409,26 +426,25 @@ class SubCategoryPageView(BaseAPIView):
                 )[:remaining]
                 ads = list(ads) + list(category_ads)
 
-            # Construct response with global pagination
             data = {
-                "current_page": current_page,
-                "total_pages": max_pages,
-                "next": main_paginator.get_next_link() if current_page < max_pages else None,
-                "previous": main_paginator.get_previous_link() if current_page > 1 else None,
-                "count": total_count,  # Sum across sections; alter to max_count if preferred
-                **paginated_data,  # Spread the section arrays
+                "current_page": current_page if current_page <= total_pages else total_pages,  # Cap if out of range
+                "total_pages": total_pages,
+                "next": f"?page={current_page + 1}" if current_page < total_pages else None,
+                "previous": f"?page={current_page - 1}" if current_page > 1 else None,
+                "count": count,
+                **paginated_data,
                 "ads": AdvertisementSerializer(ads, many=True).data,
                 "subcategory": SubCategorySerializer(subcategory).data,
-                # If you want this; not in screenshot but in your original
             }
 
             cache.set(cache_key, data, timeout=CACHE_TTL)
-            return self.success_response(data)
+            return Response({"status": "success", "message": "Success", "data": data})
 
         except Exception as e:
-            logger.error(f"Error fetching subcategory page {subcategory_id}: {str(e)}", exc_info=True)
-            return self.error_response("Failed to fetch subcategory page")
-
+            logger.error(f"Critical error in subcategory page {subcategory_id}: {str(e)}", exc_info=True)
+            subcategory_data = SubCategorySerializer(get_object_or_404(SubCategory, id=subcategory_id)).data
+            return Response({"status": "error", "message": "Failed to fetch full page", "data": subcategory_data},
+                            status=500)
 
 class SearchAPIView(APIView):
     """
