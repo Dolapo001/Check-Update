@@ -28,7 +28,7 @@ class Command(BaseCommand):
         media_types = ['image', 'video', 'none']
         ad_positions = ['header', 'sidebar', 'footer', 'in_content']
 
-        # Sample image URLs
+        # Sample image URLs for news and ads
         sample_images = [
             'https://images.unsplash.com/photo-1504711434969-e33886168f5c',
             'https://images.unsplash.com/photo-1495020689067-958852a7765e',
@@ -37,12 +37,15 @@ class Command(BaseCommand):
             'https://images.unsplash.com/photo-1546422904-90eab23c3d7e',
         ]
 
-        # Sample video URLs
+        # Sample video URLs for news
         sample_videos = [
             'https://www.w3schools.com/html/mov_bbb.mp4',
             'https://samplelib.com/lib/preview/mp4/sample-5s.mp4',
             'https://filesamples.com/samples/video/mp4/sample_640x360.mp4',
         ]
+
+        # Sample ad image URLs (can reuse sample_images or customize)
+        sample_ad_images = sample_images[:]  # Copy the list for ads
 
         # Create news articles
         for subcategory in SubCategory.objects.all():
@@ -88,14 +91,15 @@ class Command(BaseCommand):
                     )
                 )
 
-        # Create advertisements
+        # Create advertisements with dummy images
         for position in ad_positions:
             for i in range(3):
                 ad = Advertisement(
                     title=fake.company(),
                     link=fake.url(),
                     position=position,
-                    is_active=random.choice([True, False])
+                    is_active=random.choice([True, False]),
+                    image=random.choice(sample_ad_images),  # Assign dummy image
                 )
 
                 if random.choice([True, False]):
@@ -105,7 +109,7 @@ class Command(BaseCommand):
 
                 ad.save()
                 self.stdout.write(
-                    self.style.SUCCESS(f'Created ad: {ad.title} for {position}')
+                    self.style.SUCCESS(f'Created ad: {ad.title} for {position} with image {ad.image}')
                 )
 
         self.stdout.write(

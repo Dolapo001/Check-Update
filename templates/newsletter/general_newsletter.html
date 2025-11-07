@@ -1,0 +1,80 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>New News: {{ news_title }}</title>
+    <style>
+        @media only screen and (max-width: 600px) {
+            .inner-body {
+                width: 100% !important;
+            }
+
+            .footer {
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="center" style="padding: 20px 0;">
+                <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px;">
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                            <span style="font-size: 18px; font-weight: bold; color: #dc2626;">{{ company_name }}</span>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 30px 20px; background-color: #ffffff;">
+                            <h2 style="margin-top: 0; color: #1f2937;">{{ news_title }}</h2>
+                            
+                            <p style="margin-bottom: 20px; line-height: 1.6; color: #6b7280;">
+                                {{ news_excerpt }}
+                            </p>
+
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" style="padding: 20px 0;">
+                                        <table cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center" bgcolor="#dc2626" style="border-radius: 4px;">
+                                                    <a href="{{ news_url }}" target="_blank" style="display: inline-block; padding: 12px 30px; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 4px;">
+                                                        Read Full Story
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 20px; background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0 0 10px; font-size: 12px; color: #6b7280; text-align: center;">
+                                You received this email because you subscribed to {{ company_name }} newsletter.
+                            </p>
+                            <p style="margin: 0 0 10px; font-size: 12px; color: #6b7280; text-align: center;">
+                                <a href="{{ unsubscribe_url }}" style="color: #dc2626;">Unsubscribe</a> from our newsletter
+                            </p>
+                            <p style="margin: 0 0 10px; font-size: 12px; color: #6b7280; text-align: center;">
+                                Need help? Contact our support team at <a href="mailto:{{ support_email }}" style="color: #dc2626;">{{ support_email }}</a>
+                            </p>
+                            <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                                &copy; {{ "now"|date:"Y" }} {{ company_name }}. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
