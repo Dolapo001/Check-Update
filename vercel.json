@@ -1,24 +1,11 @@
 {
-  "version": 3,
+  "version": 2,
   "builds": [
-    {
-      "src": "*/wsgi.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "build_files.sh",
-      "use": "@vercel/static-build"
-    }
+    { "src": "vercel_handler.py", "use": "@vercel/python" }
   ],
   "routes": [
-    {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "*/wsgi.py"
-    }
+    { "src": "/static/(.*)", "dest": "/static/$1" },
+    { "src": "/(.*)", "dest": "vercel_handler.py" }
   ],
-  "buildCommand": "chmod +x build.sh && ./build.sh"
+  "buildCommand": "./build.sh"
 }
