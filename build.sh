@@ -1,10 +1,16 @@
 #!/bin/bash
+set -e  # Exit on any error
 
-# Install Python dependencies
+# Install dependencies
+echo "Installing dependencies..."
 pip install -r requirements.txt
 
+# Run migrations
+echo "Applying database migrations..."
+python manage.py migrate --noinput
+
 # Collect static files
+echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-# Make sure static files are accessible
-echo "Build completed - static files should be in $(pwd)/staticfiles"
+echo "Build completed - static files in $(pwd)/staticfiles"
