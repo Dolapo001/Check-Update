@@ -8,14 +8,20 @@ JAZZMIN_SETTINGS = {
     "site_icon": "img/logo.jpg",
     "welcome_sign": "Welcome to the Content Management System",
     "copyright": " Ltd 2025",
-
     # FIXED: Use correct admin URL names
     "topmenu_links": [
-        {"name": "Dashboard", "url": "admin:index", "permissions": ["auth.view_user"]},  # Changed to admin:index
+        {
+            "name": "Dashboard",
+            "url": "admin:index",
+            "permissions": ["auth.view_user"],
+        },  # Changed to admin:index
         {"name": "Site Home", "url": "/", "new_window": True},
-        {"name": "Support", "url": "https://github.com/farridav/django-jazzmin/issues", "new_window": True},
+        {
+            "name": "Support",
+            "url": "https://github.com/farridav/django-jazzmin/issues",
+            "new_window": True,
+        },
     ],
-
     "show_sidebar": True,
     "navigation_expanded": True,
     "hide_apps": {
@@ -23,7 +29,6 @@ JAZZMIN_SETTINGS = {
         "token_blacklist": ["blacklistedtoken", "outstandingtoken"],
     },
     "order_with_respect_to": ["auth", "cms"],
-
     # FIXED: Update icon references to use correct app labels
     "icons": {
         "auth.Group": "fas fa-users",
@@ -44,18 +49,15 @@ JAZZMIN_SETTINGS = {
     },
     "default_icon_parents": "fas fa-chevron-circle-right",
     "default_icon_children": "fas fa-circle",
-
     "usermenu_links": [
         {"name": "Platform", "url": "/"},
         {"model": "auth.user"},
     ],
-
     "changeform_format": "horizontal_tabs",
     "changeform_format_overrides": {
         "auth.user": "collapsible",
         "auth.group": "vertical_tabs",
     },
-
     "related_modal_active": True,
     "custom_css": "css/admin-custom.css",
     "user_avatar": None,

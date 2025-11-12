@@ -4,59 +4,97 @@ from .models import User
 
 
 class EmailVerifiedFilter(admin.SimpleListFilter):
-    title = 'Email Verification Status'
-    parameter_name = 'email_verified'
+    title = "Email Verification Status"
+    parameter_name = "email_verified"
 
     def lookups(self, request, model_admin):
         return (
-            ('verified', 'Verified'),
-            ('not_verified', 'Not Verified'),
+            ("verified", "Verified"),
+            ("not_verified", "Not Verified"),
         )
 
     def queryset(self, request, queryset):
-        if self.value() == 'verified':
+        if self.value() == "verified":
             return queryset.filter(email_verified=True)
-        if self.value() == 'not_verified':
+        if self.value() == "not_verified":
             return queryset.filter(email_verified=False)
 
 
 class CustomUserAdmin(UserAdmin):
     # Fields to display in the user list view
-    list_display = ('email', 'first_name', 'last_name', 'is_staff', 'is_active', 'email_verified', 'date_joined',
-                    'get_full_name')
+    list_display = (
+        "email",
+        "first_name",
+        "last_name",
+        "is_staff",
+        "is_active",
+        "email_verified",
+        "date_joined",
+        "get_full_name",
+    )
 
     # Fields that can be used to search for users
-    search_fields = ('email', 'first_name', 'last_name')
+    search_fields = ("email", "first_name", "last_name")
 
     # Fields that can be used to filter users
-    list_filter = ('is_staff', 'is_active', 'email_verified', 'date_joined')
+    list_filter = ("is_staff", "is_active", "email_verified", "date_joined")
 
     # How to order the users in the list
-    ordering = ('email',)
+    ordering = ("email",)
 
     # Fields to include in the add/edit forms
     fieldsets = (
-        (None, {'fields': ('email', 'password')}),
-        ('Personal Info', {'fields': ('first_name', 'last_name', 'phone_number')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-        ('Email Verification', {'fields': ('email_verified', 'verification_token', 'verification_token_expires')}),
-        ('Important Dates', {'fields': ('last_login', 'date_joined')}),
+        (None, {"fields": ("email", "password")}),
+        ("Personal Info", {"fields": ("first_name", "last_name", "phone_number")}),
+        (
+            "Permissions",
+            {
+                "fields": (
+                    "is_active",
+                    "is_staff",
+                    "is_superuser",
+                    "groups",
+                    "user_permissions",
+                )
+            },
+        ),
+        (
+            "Email Verification",
+            {
+                "fields": (
+                    "email_verified",
+                    "verification_token",
+                    "verification_token_expires",
+                )
+            },
+        ),
+        ("Important Dates", {"fields": ("last_login", "date_joined")}),
     )
 
     # Fields to include in the add user form
     add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('email', 'password1', 'password2', 'first_name', 'last_name', 'phone_number'),
-        }),
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": (
+                    "email",
+                    "password1",
+                    "password2",
+                    "first_name",
+                    "last_name",
+                    "phone_number",
+                ),
+            },
+        ),
     )
 
     def get_full_name(self, obj):
         return obj.get_full_name()
 
-    get_full_name.short_description = 'Full Name'
+    get_full_name.short_description = "Full Name"
 
-    actions = ['activate_users', 'deactivate_users']
+    actions = ["activate_users", "deactivate_users"]
 
     def activate_users(self, request, queryset):
         queryset.update(is_active=True)

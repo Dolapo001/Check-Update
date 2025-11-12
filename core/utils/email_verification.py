@@ -38,19 +38,27 @@ def generate_verification_link(user):
     # Consider hashing token before saving in DB for extra security.
     user.verification_token = token
     user.verification_token_expires = expires_at
-    user.save(update_fields=['verification_token', 'verification_token_expires'])
+    user.save(update_fields=["verification_token", "verification_token_expires"])
 
-    base_url = FRONTEND_URL.rstrip('/') if FRONTEND_URL else 'https://checkupdate-tau.vercel.app/'
-    path = f'/verify-email?token={token}&email={user.email}'
-    link = urljoin(base_url + '/', path.lstrip('/'))
+    base_url = (
+        FRONTEND_URL.rstrip("/")
+        if FRONTEND_URL
+        else "https://checkupdate-tau.vercel.app/"
+    )
+    path = f"/verify-email?token={token}&email={user.email}"
+    link = urljoin(base_url + "/", path.lstrip("/"))
 
-    return {'token': token, 'link': link, 'expires_at': expires_at}
+    return {"token": token, "link": link, "expires_at": expires_at}
 
 
 def generate_password_reset_link(token, user):
-    base_url = FRONTEND_URL.rstrip('/') if FRONTEND_URL else 'https://checkupdate-tau.vercel.app/'
-    path = f'/reset-password?token={token}&email={user.email}'
-    return urljoin(base_url + '/', path.lstrip('/'))
+    base_url = (
+        FRONTEND_URL.rstrip("/")
+        if FRONTEND_URL
+        else "https://checkupdate-tau.vercel.app/"
+    )
+    path = f"/reset-password?token={token}&email={user.email}"
+    return urljoin(base_url + "/", path.lstrip("/"))
 
 
 def _render_templates(template_name: str, context: dict):
@@ -59,33 +67,39 @@ def _render_templates(template_name: str, context: dict):
     plain_message = None
 
     try:
-        html_message = render_to_string(f'{template_name}.html', context)
+        html_message = render_to_string(f"{template_name}.html", context)
     except TemplateDoesNotExist:
-        logger.debug("HTML template %s not found", f'{template_name}.html')
+        logger.debug("HTML template %s not found", f"{template_name}.html")
 
     try:
-        plain_message = render_to_string(f'{template_name}.txt', context)
+        plain_message = render_to_string(f"{template_name}.txt", context)
     except TemplateDoesNotExist:
         # Fallback plain text
-        if 'verification_link' in context:
+        if "verification_link" in context:
             plain_message = f"Please verify your email: {context['verification_link']}"
-        elif 'reset_link' in context:
+        elif "reset_link" in context:
             plain_message = f"Reset your password: {context['reset_link']}"
         else:
             plain_message = "Please check your email for further instructions."
 
-        logger.debug("Text template %s not found; using fallback", f'{template_name}.txt')
+        logger.debug(
+            "Text template %s not found; using fallback", f"{template_name}.txt"
+        )
 
     return plain_message, html_message
 
 
-def send_email_with_template(subject, template_name, context, recipient_list, fail_silently=True):
+def send_email_with_template(
+    subject, template_name, context, recipient_list, fail_silently=True
+):
     """
     Synchronous email send (blocking). Uses explicit SMTP connection with timeout.
     Returns True on success, False on failure.
     """
     if not EMAIL_ENABLED:
-        logger.info("EMAIL_ENABLED=False. Skipping send for '%s' to %s", subject, recipient_list)
+        logger.info(
+            "EMAIL_ENABLED=False. Skipping send for '%s' to %s", subject, recipient_list
+        )
         return True
 
     if not recipient_list:
@@ -102,7 +116,7 @@ def send_email_with_template(subject, template_name, context, recipient_list, fa
         subject=subject,
         body=plain_message or "",
         from_email=from_email,
-        to=recipient_list
+        to=recipient_list,
     )
     if html_message:
         msg.attach_alternative(html_message, "text/html")
@@ -113,26 +127,50 @@ def send_email_with_template(subject, template_name, context, recipient_list, fa
     try:
         connection = get_connection(timeout=EMAIL_TIMEOUT)  # uses settings by default
         connection.open()
-        num_sent = connection.send_messages([msg])  # returns number of successfully sent messages
+        num_sent = connection.send_messages(
+            [msg]
+        )  # returns number of successfully sent messages
         duration = time.time() - start
 
         if num_sent and num_sent >= 1:
-            logger.info("Email '%s' sent to %s (duration=%.2fs)", subject, recipient_list, duration)
+            logger.info(
+                "Email '%s' sent to %s (duration=%.2fs)",
+                subject,
+                recipient_list,
+                duration,
+            )
             return True
         else:
-            logger.error("Email '%s' failed to send to %s (duration=%.2fs)", subject, recipient_list, duration)
+            logger.error(
+                "Email '%s' failed to send to %s (duration=%.2fs)",
+                subject,
+                recipient_list,
+                duration,
+            )
             return False
 
     except (SocketTimeout, smtplib.SMTPException) as e:
         duration = time.time() - start
-        logger.exception("SMTP error sending '%s' to %s (duration=%.2fs): %s", subject, recipient_list, duration, e)
+        logger.exception(
+            "SMTP error sending '%s' to %s (duration=%.2fs): %s",
+            subject,
+            recipient_list,
+            duration,
+            e,
+        )
         if not fail_silently:
             raise
         return False
 
     except Exception as e:
         duration = time.time() - start
-        logger.exception("Unexpected error sending '%s' to %s (duration=%.2fs): %s", subject, recipient_list, duration, e)
+        logger.exception(
+            "Unexpected error sending '%s' to %s (duration=%.2fs): %s",
+            subject,
+            recipient_list,
+            duration,
+            e,
+        )
         if not fail_silently:
             raise
         return False
@@ -151,23 +189,27 @@ def send_verification_email_sync(user, fail_silently=True):
         verification_data = generate_verification_link(user)
 
         context = {
-            'user': user,
-            'verification_link': verification_data['link'],
-            'expiration_hours': 24,
-            'support_email': SUPPORT_EMAIL,
-            'company_name': COMPANY_NAME,
+            "user": user,
+            "verification_link": verification_data["link"],
+            "expiration_hours": 24,
+            "support_email": SUPPORT_EMAIL,
+            "company_name": COMPANY_NAME,
         }
 
         return send_email_with_template(
-            subject='Verify Your Email Address',
-            template_name='verify_email',
+            subject="Verify Your Email Address",
+            template_name="verify_email",
             context=context,
             recipient_list=[user.email],
-            fail_silently=fail_silently
+            fail_silently=fail_silently,
         )
 
     except Exception as e:
-        logger.exception("Failed to send verification email to %s: %s", getattr(user, "email", "<unknown>"), e)
+        logger.exception(
+            "Failed to send verification email to %s: %s",
+            getattr(user, "email", "<unknown>"),
+            e,
+        )
         if not fail_silently:
             raise
         return False
@@ -179,23 +221,27 @@ def send_password_reset_email_sync(user, token, fail_silently=True):
         reset_link = generate_password_reset_link(token, user)
 
         context = {
-            'user': user,
-            'reset_link': reset_link,
-            'expiration_hours': 24,
-            'support_email': SUPPORT_EMAIL,
-            'company_name': COMPANY_NAME,
+            "user": user,
+            "reset_link": reset_link,
+            "expiration_hours": 24,
+            "support_email": SUPPORT_EMAIL,
+            "company_name": COMPANY_NAME,
         }
 
         return send_email_with_template(
-            subject='Reset Your Password',
-            template_name='password_reset',
+            subject="Reset Your Password",
+            template_name="password_reset",
             context=context,
             recipient_list=[user.email],
-            fail_silently=fail_silently
+            fail_silently=fail_silently,
         )
 
     except Exception as e:
-        logger.exception("Failed to send password reset email to %s: %s", getattr(user, "email", "<unknown>"), e)
+        logger.exception(
+            "Failed to send password reset email to %s: %s",
+            getattr(user, "email", "<unknown>"),
+            e,
+        )
         if not fail_silently:
             raise
         return False

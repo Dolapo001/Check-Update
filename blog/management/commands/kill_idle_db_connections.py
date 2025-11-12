@@ -4,6 +4,7 @@ import psycopg2
 import os
 from urllib.parse import urlparse
 
+
 class Command(BaseCommand):
     help = "Kill idle PostgreSQL connections"
 
@@ -20,17 +21,19 @@ class Command(BaseCommand):
             password=parsed.password,
             host=parsed.hostname,
             port=parsed.port,
-            sslmode="require"
+            sslmode="require",
         )
         conn.autocommit = True
         cur = conn.cursor()
 
-        cur.execute("""
+        cur.execute(
+            """
             SELECT pg_terminate_backend(pid)
             FROM pg_stat_activity
             WHERE state = 'idle'
               AND pid <> pg_backend_pid();
-        """)
+        """
+        )
 
         killed = cur.rowcount
         self.stdout.write(self.style.SUCCESS(f"Killed {killed} idle connections."))

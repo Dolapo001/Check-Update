@@ -23,6 +23,7 @@ def _delete_pattern_safe(pattern: str):
         # Method 2: Try direct Redis connection
         try:
             from django_redis import get_redis_connection
+
             conn = get_redis_connection("default")
             # Use scan_iter instead of keys for better performance with large datasets
             keys = []
@@ -50,7 +51,9 @@ def _delete_pattern_safe(pattern: str):
             cache.delete_many(known_keys)
             logger.debug(f"Deleted known news cache keys for pattern: {pattern}")
         else:
-            logger.warning(f"Pattern deletion not supported for: {pattern}. Using LocMemCache?")
+            logger.warning(
+                f"Pattern deletion not supported for: {pattern}. Using LocMemCache?"
+            )
 
     except Exception as exc:
         logger.warning(f"Failed to delete cache pattern '{pattern}': {exc}")
@@ -62,12 +65,14 @@ def invalidate_news_cache(sender, instance, **kwargs):
     try:
         _delete_pattern_safe("news:*")
         # Also clear specific common news cache keys
-        cache.delete_many([
-            "news:latest",
-            "news:popular",
-            "news:all",
-            "news:featured",
-        ])
+        cache.delete_many(
+            [
+                "news:latest",
+                "news:popular",
+                "news:all",
+                "news:featured",
+            ]
+        )
     except Exception as exc:
         logger.warning(f"Error invalidating news cache: {exc}")
 

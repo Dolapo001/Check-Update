@@ -9,11 +9,13 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+
 from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
-#from celery.schedules import crontab
+
+# from celery.schedules import crontab
 from corsheaders.defaults import default_headers
 from dotenv import load_dotenv
 import os
@@ -26,12 +28,12 @@ load_dotenv()
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-DEBUG = os.getenv('DEBUG')
-ALLOWED_HOSTS = ['*']
+DEBUG = os.getenv("DEBUG")
+ALLOWED_HOSTS = ["*"]
 
-#SECRET_KEY = os.getenv('SECRET_KEY')
+# SECRET_KEY = os.getenv('SECRET_KEY')
 
-SECRET_KEY='django-insecure-jkyq(ct1@zyaa_z)_2!iw04n!4o_kvsc36d*sqh=5nj1efl4v#'
+SECRET_KEY = "django-insecure-jkyq(ct1@zyaa_z)_2!iw04n!4o_kvsc36d*sqh=5nj1efl4v#"
 
 # SECRET_KEY='django-insecure-jkyq(ct1@zyaa_z)_2!iw04n!4o_kvsc36d*sqh=5nj1efl4v#'
 
@@ -48,7 +50,7 @@ LOCAL_APPS = [
     "common.apps.CommonConfig",
     "core.apps.CoreConfig",
     "admin_roles.apps.AdminRolesConfig",
-    "blog.apps.BlogConfig"
+    "blog.apps.BlogConfig",
 ]
 
 THIRD_PARTY_APPS = [
@@ -56,7 +58,9 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt",
     "drf_spectacular",
     "celery",
-    'debug_toolbar',
+    "debug_toolbar",
+    "cloudinary_storage",
+    "cloudinary",
 ]
 
 
@@ -69,7 +73,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
-    #"csp.middleware.CSPMiddleware",
+    # "csp.middleware.CSPMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "common.middleware.BlacklistMiddleware",
@@ -96,7 +100,7 @@ REST_FRAMEWORK = {
         "common.authentication.CustomJWTAuthentication",  # Use custom JWT authentication
     ),
     "COERCE_DECIMAL_TO_STRING": False,
-    #"EXCEPTION_HANDLER": "apps.common.exception_handler.CustomExceptionHandler.handle",  # noqa
+    # "EXCEPTION_HANDLER": "apps.common.exception_handler.CustomExceptionHandler.handle",  # noqa
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",),
@@ -108,7 +112,6 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {"anon": "10000/day", "user": "50000/day"},
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
     "DEFAULT_PARSER_CLASSES": ("rest_framework.parsers.JSONParser",),
-
 }
 
 
@@ -118,7 +121,7 @@ CORS_EXPOSE_HEADERS = [
     "cache-control",
 ]
 
-CORS_ALLOW_HEADERS =  list(default_headers) + [
+CORS_ALLOW_HEADERS = list(default_headers) + [
     "if-none-match",
     "cache-control",
     "accept",
@@ -148,7 +151,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://10.5.0.2:3000",
-    'https://checkupdate-tau.vercel.app/'
+    "https://checkupdate-tau.vercel.app/",
 ]
 
 
@@ -165,7 +168,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 AUTH_USER_MODEL = "core.User"
-#AUTH_USER_MODEL = 'admin_roles.AdminUser'
+# AUTH_USER_MODEL = 'admin_roles.AdminUser'
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),  # Adjust as needed
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # Adjust as needed
@@ -186,25 +189,24 @@ SIMPLE_JWT = {
 }
 
 
-ROOT_URLCONF = 'CheckUpdates.urls'
+ROOT_URLCONF = "CheckUpdates.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'core/templates']
-        ,
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "core/templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'CheckUpdates.wsgi.application'
+WSGI_APPLICATION = "CheckUpdates.wsgi.application"
 
 
 # Database
@@ -218,19 +220,18 @@ WSGI_APPLICATION = 'CheckUpdates.wsgi.application'
 # }
 DATABASES = {
     "default": dj_database_url.parse(
-        os.getenv("DATABASE_URL"),
-        conn_max_age=600,  # 10 minutes
-        ssl_require=True
+        os.getenv("DATABASE_URL"), conn_max_age=600, ssl_require=True  # 10 minutes
     )
 }
 
-DATABASES['default']['OPTIONS'] = {
+DATABASES["default"]["OPTIONS"] = {
     "application_name": "check-update-vercel",
     "sslmode": "require",
 }
 
 CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))
 REDIS_URL = os.getenv("REDIS_URL")  # may be None in prod
+
 
 def locmem_cache():
     return {
@@ -239,6 +240,8 @@ def locmem_cache():
             "LOCATION": "unique-checkupdate-fallback",
         }
     }
+
+
 if REDIS_URL:
     # try to use redis, but fall back if it fails to connect
     CACHES = {
@@ -253,6 +256,7 @@ if REDIS_URL:
     # optional: sanity check so app doesn't crash at import-time with unreachable host
     try:
         import redis as _redis
+
         _client = _redis.from_url(REDIS_URL, socket_connect_timeout=2)
         _client.ping()
     except Exception:
@@ -266,16 +270,16 @@ else:
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -288,9 +292,9 @@ AUTHENTICATION_BACKENDS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -302,11 +306,14 @@ USE_TZ = True
 
 # Make sure these settings are properly configured
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = '/static/'
+STATIC_URL = "/static/"
 STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+    BASE_DIR / "static",
 ]
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = BASE_DIR / "staticfiles"
+DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+MEDIA_URL = "/media/"  # Standard media URL prefix
+
 
 # Optimized storage configuration
 STORAGES = {
@@ -321,19 +328,16 @@ STORAGES = {
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-
-
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 def str_to_bool(value):
-    return str(value).lower() in ['true', '1', 'yes']
+    return str(value).lower() in ["true", "1", "yes"]
 
 
 # Email configuration
 # settings.py - Fix email configuration
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("ZEPTOMAIL_SMTP_SERVER", "smtp.zeptomail.com")
 EMAIL_PORT = int(os.getenv("ZEPTOMAIL_SMTP_PORT", 587))
 EMAIL_HOST_USER = os.getenv("ZEPTOMAIL_USERNAME", "emailapikey")
@@ -348,11 +352,11 @@ EMAIL_SEND_RETRY_BACKOFF = 0.5
 
 # ZeptoMail specific configuration (for custom implementation)
 ZEPTOMAIL_CONFIG = {
-    'SMTP_SERVER': EMAIL_HOST,
-    'SMTP_PORT': EMAIL_PORT,
-    'USERNAME': EMAIL_HOST_USER,
-    'PASSWORD': EMAIL_HOST_PASSWORD,
-    'FROM_EMAIL': DEFAULT_FROM_EMAIL,
+    "SMTP_SERVER": EMAIL_HOST,
+    "SMTP_PORT": EMAIL_PORT,
+    "USERNAME": EMAIL_HOST_USER,
+    "PASSWORD": EMAIL_HOST_PASSWORD,
+    "FROM_EMAIL": DEFAULT_FROM_EMAIL,
 }
 
 # if DEBUG:
@@ -363,15 +367,15 @@ ZEPTOMAIL_CONFIG = {
 
 
 # Other settings
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-SESSION_COOKIE_NAME = 'checkupdate_session'
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_NAME = "checkupdate_session"
 SESSION_COOKIE_AGE = 3600
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
 FRONTEND_URL = "https://checkupdate-tau.vercel.app/"
 
-#FRONTEND_URL = os.getenv('FRONTEND_URL')
+# FRONTEND_URL = os.getenv('FRONTEND_URL')
 SUPPORT_EMAIL = "info@checkupdate.ng"
 COMPANY_NAME = "Check Update"
 
@@ -487,4 +491,3 @@ LOGGING = {
 #         "report-uri": "/csp-report/",  # Reporting endpoint for testing purposes
 #     },
 # }
-

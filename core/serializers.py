@@ -9,9 +9,7 @@ from .models import User, PasswordResetToken
 
 class CustomRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
-        write_only=True,
-        min_length=8,
-        validators=[validate_password]
+        write_only=True, min_length=8, validators=[validate_password]
     )
     confirm_password = serializers.CharField(write_only=True)
     terms_accepted = serializers.BooleanField(write_only=True)
@@ -19,8 +17,12 @@ class CustomRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'email', 'first_name', 'last_name', 'password',
-            'confirm_password', 'terms_accepted'
+            "email",
+            "first_name",
+            "last_name",
+            "password",
+            "confirm_password",
+            "terms_accepted",
         ]
 
     def validate_email(self, value):
@@ -29,21 +31,23 @@ class CustomRegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        if attrs['password'] != attrs['confirm_password']:
+        if attrs["password"] != attrs["confirm_password"]:
             raise serializers.ValidationError("Passwords don't match.")
 
-        if not attrs.get('terms_accepted'):
-            raise serializers.ValidationError("You must accept the terms and conditions.")
+        if not attrs.get("terms_accepted"):
+            raise serializers.ValidationError(
+                "You must accept the terms and conditions."
+            )
 
         return attrs
 
     def create(self, validated_data):
         # Create user using custom manager
         user = User.objects.create_user(
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
+            email=validated_data["email"],
+            password=validated_data["password"],
+            first_name=validated_data.get("first_name", ""),
+            last_name=validated_data.get("last_name", ""),
         )
         return user
 
@@ -78,8 +82,8 @@ class EmailVerificationSerializer(serializers.Serializer):
     token = serializers.CharField()
 
     def validate(self, attrs):
-        email = attrs.get('email')
-        code = attrs.get('token')
+        email = attrs.get("email")
+        code = attrs.get("token")
 
         try:
             user = User.objects.get(email=email)
@@ -92,7 +96,7 @@ class EmailVerificationSerializer(serializers.Serializer):
         if not user.is_verification_code_valid(code):
             raise serializers.ValidationError("Invalid or expired verification code.")
 
-        attrs['user'] = user
+        attrs["user"] = user
         return attrs
 
 
@@ -119,28 +123,28 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     token = serializers.CharField()
-    new_password = serializers.CharField(min_length=8, write_only=True, validators=[validate_password])
+    new_password = serializers.CharField(
+        min_length=8, write_only=True, validators=[validate_password]
+    )
     confirm_password = serializers.CharField(write_only=True)
 
     def validate_token(self, value):
         try:
             self.reset_token = PasswordResetToken.objects.get(
-                token=value,
-                used=False,
-                expires_at__gt=timezone.now()
+                token=value, used=False, expires_at__gt=timezone.now()
             )
         except PasswordResetToken.DoesNotExist:
             raise serializers.ValidationError("Invalid or expired token.")
         return value
 
     def validate(self, attrs):
-        if attrs['new_password'] != attrs['confirm_password']:
+        if attrs["new_password"] != attrs["confirm_password"]:
             raise serializers.ValidationError("Passwords don't match.")
         return attrs
 
     def save(self):
         user = self.reset_token.user
-        user.set_password(self.validated_data['new_password'])
+        user.set_password(self.validated_data["new_password"])
         user.save()
         self.reset_token.used = True
         self.reset_token.save()

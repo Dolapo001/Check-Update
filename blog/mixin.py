@@ -6,8 +6,11 @@ from rest_framework.response import Response
 
 logger = logging.getLogger(__name__)
 
+
 class CachedNewsMixin:
-    def get_cached_news(self, cache_key, queryset_func, serializer_class, limit, context, timeout):
+    def get_cached_news(
+        self, cache_key, queryset_func, serializer_class, limit, context, timeout
+    ):
         try:
             data = cache.get(cache_key)
             if data is not None:

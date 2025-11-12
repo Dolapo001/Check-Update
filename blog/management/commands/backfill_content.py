@@ -8,7 +8,7 @@ import random
 
 
 class Command(BaseCommand):
-    help = 'Backfill news and advertisements for existing categories and subcategories'
+    help = "Backfill news and advertisements for existing categories and subcategories"
 
     def handle(self, *args, **options):
         fake = Faker()
@@ -18,30 +18,27 @@ class Command(BaseCommand):
         user = User.objects.first()
         if not user:
             user = User.objects.create_user(
-                email='admin@example.com',
-                password='password123'
+                email="admin@example.com", password="password123"
             )
-            self.stdout.write(
-                self.style.SUCCESS('Created default admin user')
-            )
+            self.stdout.write(self.style.SUCCESS("Created default admin user"))
 
-        media_types = ['image', 'video', 'none']
-        ad_positions = ['header', 'sidebar', 'footer', 'in_content']
+        media_types = ["image", "video", "none"]
+        ad_positions = ["header", "sidebar", "footer", "in_content"]
 
         # Sample image URLs for news and ads
         sample_images = [
-            'https://images.unsplash.com/photo-1504711434969-e33886168f5c',
-            'https://images.unsplash.com/photo-1495020689067-958852a7765e',
-            'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b',
-            'https://images.unsplash.com/photo-1563986768609-322da13575f3',
-            'https://images.unsplash.com/photo-1546422904-90eab23c3d7e',
+            "https://images.unsplash.com/photo-1504711434969-e33886168f5c",
+            "https://images.unsplash.com/photo-1495020689067-958852a7765e",
+            "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b",
+            "https://images.unsplash.com/photo-1563986768609-322da13575f3",
+            "https://images.unsplash.com/photo-1546422904-90eab23c3d7e",
         ]
 
         # Sample video URLs for news
         sample_videos = [
-            'https://www.w3schools.com/html/mov_bbb.mp4',
-            'https://samplelib.com/lib/preview/mp4/sample-5s.mp4',
-            'https://filesamples.com/samples/video/mp4/sample_640x360.mp4',
+            "https://www.w3schools.com/html/mov_bbb.mp4",
+            "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+            "https://filesamples.com/samples/video/mp4/sample_640x360.mp4",
         ]
 
         # Sample ad image URLs (can reuse sample_images or customize)
@@ -57,15 +54,15 @@ class Command(BaseCommand):
 
                 # Decide on media file (or None)
                 media_file = None
-                if media_type == 'image':
+                if media_type == "image":
                     media_file = random.choice(sample_images)
-                elif media_type == 'video':
+                elif media_type == "video":
                     media_file = random.choice(sample_videos)
 
                 news = News(
                     title=title,
                     slug=slugify(title)[:200],  # Ensure slug fits field length
-                    content='\n\n'.join(fake.paragraphs(nb=10)),
+                    content="\n\n".join(fake.paragraphs(nb=10)),
                     media_type=media_type,
                     subcategory=subcategory,
                     author=user,
@@ -87,7 +84,7 @@ class Command(BaseCommand):
                 news.save()
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f'Created news: {title} | {media_type} | views={news.views}'
+                        f"Created news: {title} | {media_type} | views={news.views}"
                     )
                 )
 
@@ -109,11 +106,16 @@ class Command(BaseCommand):
 
                 ad.save()
                 self.stdout.write(
-                    self.style.SUCCESS(f'Created ad: {ad.title} for {position} with image {ad.image}')
+                    self.style.SUCCESS(
+                        f"Created ad: {ad.title} for {position} with image {ad.image}"
+                    )
                 )
 
         self.stdout.write(
-            self.style.SUCCESS('✅ Successfully backfilled news and advertisements')
+            self.style.SUCCESS("✅ Successfully backfilled news and advertisements")
         )
+
+
 from django.db import connection
+
 connection.close()

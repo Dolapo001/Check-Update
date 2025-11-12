@@ -15,13 +15,11 @@ def validate_google_token(access_token):
     try:
         # Verify Google token
         id_info = id_token.verify_oauth2_token(
-            access_token,
-            requests.Request(),
-            settings.GOOGLE_OAUTH2_CLIENT_ID
+            access_token, requests.Request(), settings.GOOGLE_OAUTH2_CLIENT_ID
         )
 
         # Verify token audience matches our client ID
-        if id_info['aud'] != settings.GOOGLE_OAUTH2_CLIENT_ID:
+        if id_info["aud"] != settings.GOOGLE_OAUTH2_CLIENT_ID:
             logger.error("Google token audience mismatch")
             return None
 
@@ -39,17 +37,17 @@ def get_or_create_google_user(user_info):
     Find or create user based on Google user info
     Returns tuple: (user, created)
     """
-    email = user_info['email']
-    first_name = user_info.get('given_name', '')
-    last_name = user_info.get('family_name', '')
-    google_id = user_info['sub']
+    email = user_info["email"]
+    first_name = user_info.get("given_name", "")
+    last_name = user_info.get("family_name", "")
+    google_id = user_info["sub"]
 
     try:
         user = User.objects.get(email=email)
         # Update Google ID if missing
         if not user.google_id:
             user.google_id = google_id
-            user.save(update_fields=['google_id'])
+            user.save(update_fields=["google_id"])
         return user, False
     except User.DoesNotExist:
         # Create new user with Google info
@@ -58,6 +56,6 @@ def get_or_create_google_user(user_info):
             first_name=first_name,
             last_name=last_name,
             google_id=google_id,
-            email_verified=True  # Google already verified email
+            email_verified=True,  # Google already verified email
         )
         return user, True

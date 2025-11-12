@@ -11,6 +11,7 @@ class EmailAuthBackend(BaseBackend):
     Django's `authenticate` uses the 'username' arg name, so we accept it
     but treat it as an email address.
     """
+
     def authenticate(self, request, username=None, password=None, **kwargs):
         email = username or kwargs.get("email")
         if not email or not password:

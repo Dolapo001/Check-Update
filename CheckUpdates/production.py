@@ -4,6 +4,10 @@ from .settings import *
 
 # Cloudinary storage settings
 os.getenv = os.getenv
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+
 CLOUDINARY_STORAGE = {
     "CLOUD_NAME": os.getenv(
         "CLOUDINARY_CLOUD_NAME"
@@ -19,7 +23,11 @@ DEBUG_PROPAGATE_EXCEPTIONS = (
 )
 
 # Allowed hosts for the application
-ALLOWED_HOSTS = []  # Set this to your allowed production hosts
+ALLOWED_HOSTS = [
+    "checkupdate-tau.vercel.app",
+    ".vercel.app",
+    "your-custom-domain.com",
+]  # Set this to your allowed production hosts
 
 # Trusted origins for CSRF protection, dynamically generated from allowed hosts
 CSRF_TRUSTED_ORIGINS = ["https://" + host for host in ALLOWED_HOSTS]
@@ -111,3 +119,10 @@ CSRF_COOKIE_HTTPONLY = (
     False  # Allow CSRF cookie to be accessible to JavaScript (if required)
 )
 CSRF_COOKIE_SAMESITE = "Lax"  # CSRF cookie is only sent on same-site requests  # noqa
+
+LOGGING["handlers"]["file"] = {
+    "class": "logging.FileHandler",
+    "filename": os.path.join(BASE_DIR, "logs/django.log"),
+    "formatter": "verbose",
+}
+LOGGING["loggers"]["django"]["handlers"].append("file")

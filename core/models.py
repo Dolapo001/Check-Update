@@ -17,7 +17,9 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     email = models.EmailField(unique=True, validators=[validate_email_format])
     first_name = models.CharField(max_length=30, blank=True)
     last_name = models.CharField(max_length=30, blank=True)
-    phone_number = models.CharField(max_length=20, blank=True, validators=[validate_phone_number])
+    phone_number = models.CharField(
+        max_length=20, blank=True, validators=[validate_phone_number]
+    )
 
     # Email verification
     email_verified = models.BooleanField(default=False)
@@ -34,30 +36,30 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     date_joined = models.DateTimeField(default=timezone.now)
     groups = models.ManyToManyField(
         Group,
-        verbose_name='groups',
+        verbose_name="groups",
         blank=True,
-        help_text='The groups this user belongs to.',
+        help_text="The groups this user belongs to.",
         related_name="coreuser_groups",
         related_query_name="coreuser",
     )
     user_permissions = models.ManyToManyField(
         Permission,
-        verbose_name='user permissions',
+        verbose_name="user permissions",
         blank=True,
-        help_text='Specific permissions for this user.',
+        help_text="Specific permissions for this user.",
         related_name="coreuser_permissions",
         related_query_name="coreuser",
     )
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
     objects = CustomUserManager()
 
     class Meta:
-        db_table = 'users'
-        verbose_name = 'User'
-        verbose_name_plural = 'Users'
+        db_table = "users"
+        verbose_name = "User"
+        verbose_name_plural = "Users"
 
     def __str__(self):
         return self.email
@@ -71,9 +73,9 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     def is_verification_code_valid(self, code):
         """Check if verification code is valid and not expired"""
         return (
-                self.verification_token and
-                secrets.compare_digest(self.verification_token, code) and
-                timezone.now() < self.verification_token_expires
+            self.verification_token
+            and secrets.compare_digest(self.verification_token, code)
+            and timezone.now() < self.verification_token_expires
         )
 
     def verify_email(self):
@@ -81,19 +83,27 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         self.email_verified = True
         self.verification_token = None
         self.verification_token_expires = None
-        self.save(update_fields=['email_verified', 'verification_token', 'verification_token_expires'])
+        self.save(
+            update_fields=[
+                "email_verified",
+                "verification_token",
+                "verification_token_expires",
+            ]
+        )
 
 
 class PasswordResetToken(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="password_reset_tokens"
+    )
     token = models.CharField(max_length=100, unique=True)
     expires_at = models.DateTimeField()
     used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'password_reset_tokens'
-        ordering = ['-created_at']
+        db_table = "password_reset_tokens"
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"Password reset token for {self.user.email}"
@@ -107,11 +117,7 @@ class PasswordResetToken(BaseModel):
         # Invalidate existing tokens
         cls.objects.filter(user=user, used=False).update(used=True)
 
-        return cls.objects.create(
-            user=user,
-            token=token,
-            expires_at=expires_at
-        )
+        return cls.objects.create(user=user, token=token, expires_at=expires_at)
 
     def is_valid(self):
         return not self.used and timezone.now() < self.expires_at
@@ -119,7 +125,7 @@ class PasswordResetToken(BaseModel):
     def mark_as_used(self):
         """Mark token as used"""
         self.used = True
-        self.save(update_fields=['used'])
+        self.save(update_fields=["used"])
 
 
 class EmailVerificationAttempt(BaseModel):
@@ -130,11 +136,11 @@ class EmailVerificationAttempt(BaseModel):
     success = models.BooleanField(default=False)
 
     class Meta:
-        db_table = 'email_verification_attempts'
-        ordering = ['-timestamp']
+        db_table = "email_verification_attempts"
+        ordering = ["-timestamp"]
         indexes = [
-            models.Index(fields=['email', 'timestamp']),
-            models.Index(fields=['ip_address', 'timestamp']),
+            models.Index(fields=["email", "timestamp"]),
+            models.Index(fields=["ip_address", "timestamp"]),
         ]
 
     def __str__(self):
