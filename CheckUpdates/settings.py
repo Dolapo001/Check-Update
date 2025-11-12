@@ -29,10 +29,10 @@ DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1", "yes"]
 
 SECRET_KEY = os.getenv(
     "SECRET_KEY",
-    "django-insecure-jkyq(ct1@zyaa_z)_2!iw04n!4o_kvsc36d*sqh=5nj1efl4v#"
+
 )
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS").split(",")
 
 DJANGO_APPS = [
     "jazzmin",
