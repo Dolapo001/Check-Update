@@ -1,14 +1,11 @@
 {
+  "version": 2,
   "builds": [
-    {
-      "src": "/CheckUpdates/wsgi.py",
-      "use": "@vercel/python",
-      "config": { "runtime": "python3.12" }
-    }
+    { "src": "vercel_handler.py", "use": "@vercel/python" }
   ],
   "routes": [
-    { "src": "/.*", "dest": "/CheckUpdates/wsgi.py" }
+    { "src": "/static/(.*)", "dest": "/static/$1" },
+    { "src": "/(.*)", "dest": "vercel_handler.py" }
   ],
-  "env": {
-    "DJANGO_SETTINGS_MODULE": "CheckUpdates.production"  }
+  "buildCommand": "./build.sh"
 }

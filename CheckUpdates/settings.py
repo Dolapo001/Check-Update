@@ -14,28 +14,25 @@ from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
-
-# from celery.schedules import crontab
 from corsheaders.defaults import default_headers
 from dotenv import load_dotenv
 import os
-from common.middleware import BlacklistMiddleware
-from .jazzmin import JAZZMIN_SETTINGS
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv()
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-DEBUG = os.getenv("DEBUG")
-ALLOWED_HOSTS = ["*"]
+DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1", "yes"]
 
-# SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.getenv(
+    "SECRET_KEY",
+    "django-insecure-jkyq(ct1@zyaa_z)_2!iw04n!4o_kvsc36d*sqh=5nj1efl4v#"
+)
 
-SECRET_KEY = "django-insecure-jkyq(ct1@zyaa_z)_2!iw04n!4o_kvsc36d*sqh=5nj1efl4v#"
-
-# SECRET_KEY='django-insecure-jkyq(ct1@zyaa_z)_2!iw04n!4o_kvsc36d*sqh=5nj1efl4v#'
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
 
 DJANGO_APPS = [
     "jazzmin",
@@ -58,22 +55,20 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt",
     "drf_spectacular",
     "celery",
-    "debug_toolbar",
     "cloudinary_storage",
     "cloudinary",
 ]
 
+if DEBUG:
+    THIRD_PARTY_APPS += ["debug_toolbar"]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS + THIRD_PARTY_APPS
-
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
-    # "csp.middleware.CSPMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "common.middleware.BlacklistMiddleware",
@@ -84,9 +79,10 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-INTERNAL_IPS = [
-    "127.0.0.1",
-]
+if DEBUG:
+    MIDDLEWARE.insert(4, "debug_toolbar.middleware.DebugToolbarMiddleware")  # Insert after session middleware for best results
+
+INTERNAL_IPS = ["127.0.0.1"]
 
 if DEBUG:
     DEBUG_TOOLBAR_CONFIG = {
@@ -94,13 +90,11 @@ if DEBUG:
         "INTERCEPT_REDIRECTS": False,
     }
 
-
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "common.authentication.CustomJWTAuthentication",  # Use custom JWT authentication
+        "common.authentication.CustomJWTAuthentication",
     ),
     "COERCE_DECIMAL_TO_STRING": False,
-    # "EXCEPTION_HANDLER": "apps.common.exception_handler.CustomExceptionHandler.handle",  # noqa
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",),
@@ -114,8 +108,6 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": ("rest_framework.parsers.JSONParser",),
 }
 
-
-# expose headers you want front-end JS to be able to read
 CORS_EXPOSE_HEADERS = [
     "etag",
     "cache-control",
@@ -144,22 +136,15 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "if-none-match",
 ]
 
-
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://10.5.0.2:3000",
-    "https://checkupdate-tau.vercel.app/",
-]
-
+CORS_ALLOWED_ORIGINS = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://10.5.0.2:3000,https://checkupdate-tau.vercel.app"
+).split(",")
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "CheckUpdate API",
-    "DESCRIPTION": """
-
-    """,
+    "DESCRIPTION": "",
     "VERSION": "1.0.0",
     "CONTACT": "",
     "SCHEMA_PATH_PREFIX": r"/api/v[0-9]",
@@ -168,26 +153,23 @@ SPECTACULAR_SETTINGS = {
 }
 
 AUTH_USER_MODEL = "core.User"
-# AUTH_USER_MODEL = 'admin_roles.AdminUser'
+
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),  # Adjust as needed
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # Adjust as needed
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,  # Use your Django secret key or a separate JWT secret
-    # Custom token claims and authentication settings
+    "SIGNING_KEY": SECRET_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
-    # Token blacklist settings (if using blacklisting feature)
     "BLACKLIST_ENABLED": True,
     "JTI_CLAIM": "jti",
 }
-
 
 ROOT_URLCONF = "CheckUpdates.urls"
 
@@ -208,30 +190,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "CheckUpdates.wsgi.application"
 
-
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-#
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-DATABASES = {
-    "default": dj_database_url.parse(
-        os.getenv("DATABASE_URL"), conn_max_age=600, ssl_require=True  # 10 minutes
-    )
-}
-
-DATABASES["default"]["OPTIONS"] = {
-    "application_name": "check-update-vercel",
-    "sslmode": "require",
-}
+# Database configuration
+if DEBUG:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+else:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            os.getenv("DATABASE_URL"),
+            conn_max_age=600,
+            ssl_require=True,
+        )
+    }
+    DATABASES["default"]["OPTIONS"] = {
+        "application_name": "check-update-vercel",
+        "sslmode": "require",
+    }
 
 CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))
-REDIS_URL = os.getenv("REDIS_URL")  # may be None in prod
-
+REDIS_URL = os.getenv("REDIS_URL")
 
 def locmem_cache():
     return {
@@ -241,32 +222,23 @@ def locmem_cache():
         }
     }
 
-
 if REDIS_URL:
-    # try to use redis, but fall back if it fails to connect
-    CACHES = {
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": REDIS_URL,
-            "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-            "KEY_PREFIX": "check_update",
-        }
-    }
-
-    # optional: sanity check so app doesn't crash at import-time with unreachable host
     try:
-        import redis as _redis
-
-        _client = _redis.from_url(REDIS_URL, socket_connect_timeout=2)
-        _client.ping()
+        import redis
+        client = redis.from_url(REDIS_URL, socket_connect_timeout=2)
+        client.ping()
+        CACHES = {
+            "default": {
+                "BACKEND": "django_redis.cache.RedisCache",
+                "LOCATION": REDIS_URL,
+                "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+                "KEY_PREFIX": "check_update",
+            }
+        }
     except Exception:
-        # couldn't connect — fallback to locmem
         CACHES = locmem_cache()
 else:
     CACHES = locmem_cache()
-
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -288,101 +260,60 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = "en-us"
-
 TIME_ZONE = "UTC"
-
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
-# Make sure these settings are properly configured
-# Static files (CSS, JavaScript, Images)
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
-MEDIA_URL = "/media/"  # Standard media URL prefix
+MEDIA_URL = "/media/"
 
-
-# Optimized storage configuration
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage" if not DEBUG else "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",  # Changed this
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage" if not DEBUG else "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-
-def str_to_bool(value):
-    return str(value).lower() in ["true", "1", "yes"]
-
-
-# Email configuration
-# settings.py - Fix email configuration
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("ZEPTOMAIL_SMTP_SERVER", "smtp.zeptomail.com")
-EMAIL_PORT = int(os.getenv("ZEPTOMAIL_SMTP_PORT", 587))
-EMAIL_HOST_USER = os.getenv("ZEPTOMAIL_USERNAME", "emailapikey")
-EMAIL_HOST_PASSWORD = os.getenv("ZEPTOMAIL_PASSWORD", "")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.zeptomail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "emailapikey")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = True
-EMAIL_USE_SSL = False  # Since you're using port 587 with TLS
-DEFAULT_FROM_EMAIL = os.getenv("ZEPTOMAIL_FROM_EMAIL", "security@checkupdate.ng")
+EMAIL_USE_SSL = False
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "security@checkupdate.ng")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 EMAIL_TIMEOUT = 10
 EMAIL_SEND_RETRY_COUNT = 1
 EMAIL_SEND_RETRY_BACKOFF = 0.5
 
-# ZeptoMail specific configuration (for custom implementation)
-ZEPTOMAIL_CONFIG = {
-    "SMTP_SERVER": EMAIL_HOST,
-    "SMTP_PORT": EMAIL_PORT,
-    "USERNAME": EMAIL_HOST_USER,
-    "PASSWORD": EMAIL_HOST_PASSWORD,
-    "FROM_EMAIL": DEFAULT_FROM_EMAIL,
-}
+if not DEBUG:
+    EMAIL_HOST = "smtp.gmail.com"
+    EMAIL_PORT = 587
+    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-# if DEBUG:
-#     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-#     print("Using console email backend for development")
-# else:
-#     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
-
-# Other settings
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_NAME = "checkupdate_session"
 SESSION_COOKIE_AGE = 3600
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
-FRONTEND_URL = "https://checkupdate-tau.vercel.app/"
-
-# FRONTEND_URL = os.getenv('FRONTEND_URL')
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://checkupdate-tau.vercel.app/")
 SUPPORT_EMAIL = "info@checkupdate.ng"
 COMPANY_NAME = "Check Update"
 
-
+from .jazzmin import JAZZMIN_SETTINGS
 JAZZMIN_SETTINGS = JAZZMIN_SETTINGS
 
-# Logging configuration
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -401,93 +332,72 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "simple",
         },
-        # REMOVED the 'file' handler completely
     },
     "loggers": {
         "django": {
-            "handlers": ["console"],  # Removed 'file' handler
+            "handlers": ["console"],
             "level": "INFO",
         },
         "django.request": {
-            # Changed to console handler since file handler is gone
             "handlers": ["console"],
             "level": "ERROR",
             "propagate": False,
         },
         "rest_framework": {
-            "handlers": ["console"],  # Removed 'file' handler
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": True,
         },
     },
 }
-# # Celery Configuration
-# CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-# CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
-# CELERY_ACCEPT_CONTENT = ['json']
-# CELERY_TASK_SERIALIZER = 'json'
-# CELERY_RESULT_SERIALIZER = 'json'
-# CELERY_TIMEZONE = 'UTC'  # or your preferred timezone
-#
-# # Celery Task Configuration
-# CELERY_TASK_ALWAYS_EAGER = False  # Set to True for development (synchronous execution)
-# CELERY_TASK_EAGER_PROPAGATES = True
-# CELERY_TASK_CREATE_MISSING_QUEUES = True
-# CELERY_TASK_DEFAULT_QUEUE = 'default'
-#
-# # Task specific settings
-# CELERY_TASK_ROUTES = {
-#     'blog.tasks.send_news_notification': {'queue': 'email'},
-#     'blog.tasks.send_newsletter': {'queue': 'email'},
-# }
-#
-# # Retry configuration
-# CELERY_TASK_ANNOTATIONS = {
-#     'blog.tasks.send_news_notification': {
-#         'max_retries': 3,
-#         'default_retry_delay': 300,  # 5 minutes
-#     },
-#     'blog.tasks.send_newsletter': {
-#         'max_retries': 3,
-#         'default_retry_delay': 300,
-#     },
-# }
-#
-# # Beat Schedule for periodic tasks (if needed)
-# CELERY_BEAT_SCHEDULE = {
-#     # Example: Send weekly newsletter every Monday at 9 AM
-#     'send-weekly-newsletter': {
-#         'task': 'blog.tasks.send_weekly_digest',
-#         'schedule': crontab(hour=9, minute=0, day_of_week=1),
-#     },
-#     # Example: Clean up old tasks every day at midnight
-#     'cleanup-old-tasks': {
-#         'task': 'blog.tasks.cleanup_old_task_results',
-#         'schedule': crontab(hour=0, minute=0),
-#     },
-# }
 
-# Report-only CSP for development or testing purposes (doesn’t block, only reports)  # noqa
-# CONTENT_SECURITY_POLICY_REPORT_ONLY = {
-#     "EXCLUDE_URL_PREFIXES": ["/excluded-path/"],
-#     "DIRECTIVES": {
-#         "default-src": [None],  # Block all resources by default
-#         "connect-src": [
-#             "'self'"
-#         ],  # Allow same-origin connections for WebSocket, AJAX, etc.
-#         "img-src": [
-#             "'self'",
-#             "https://res.cloudinary.com",
-#         ],  # Restrict image sources to same-origin
-#         "media-src": [
-#             "'self'",
-#             "https://res.cloudinary.com",
-#         ],  # Allow media files from Cloudinary
-#         "form-action": ["'self'"],  # Allow forms to submit to same-origin only
-#         "frame-ancestors": ["'self'"],  # Only allow embedding within the same-origin
-#         "script-src": ["'self'"],  # Restrict JavaScript to same-origin
-#         "style-src": ["'self'"],  # Restrict CSS to same-origin
-#         "upgrade-insecure-requests": True,  # Enforce HTTPS for all requests
-#         "report-uri": "/csp-report/",  # Reporting endpoint for testing purposes
-#     },
-# }
+if not DEBUG:
+    LOGGING["handlers"]["file"] = {
+        "class": "logging.FileHandler",
+        "filename": os.path.join(BASE_DIR, "logs/django.log"),
+        "formatter": "verbose",
+    }
+    LOGGING["loggers"]["django"]["handlers"].append("file")
+    LOGGING["loggers"]["django.request"]["handlers"].append("file")
+    LOGGING["loggers"]["rest_framework"]["handlers"].append("file")
+
+# Celery Configuration (commented out as in original)
+# CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+# CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+# ... (rest of Celery config remains commented)
+
+CLOUDINARY_STORAGE = {
+    "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
+    "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
+    "API_SECRET": os.getenv("CLOUDINARY_API_SECRET"),
+}
+
+if not DEBUG:
+    DEBUG_PROPAGATE_EXCEPTIONS = False
+    CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ALLOWED_HOSTS]
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    X_FRAME_OPTIONS = "DENY"
+    CSRF_COOKIE_HTTPONLY = False
+    CSRF_COOKIE_SAMESITE = "Lax"
+
+    CONTENT_SECURITY_POLICY = {
+        "DIRECTIVES": {
+            "default-src": ["'self'"],
+            "img-src": ["'self'", "https://res.cloudinary.com"],
+            "media-src": ["'self'", "https://res.cloudinary.com"],
+            "script-src": ["'self'"],
+            "style-src": ["'self'"],
+            "font-src": ["'self'"],
+            "connect-src": ["'self'"],
+            "frame-ancestors": ["'self'"],
+            "form-action": ["'self'"],
+            "report-uri": "/csp-report/",
+        }
+    }
