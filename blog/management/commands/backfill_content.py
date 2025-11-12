@@ -1,11 +1,12 @@
-# blog/management/commands/backfill_content.py
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from blog.models import Category, SubCategory, News, Advertisement
 from faker import Faker
 from django.utils.text import slugify
 import random
-
+import cloudinary.uploader
+from django.db import transaction
+from django.db.utils import IntegrityError
 
 class Command(BaseCommand):
     help = "Backfill news and advertisements for existing categories and subcategories"
@@ -14,7 +15,7 @@ class Command(BaseCommand):
         fake = Faker()
         User = get_user_model()
 
-        # Get or create a user
+        # Get or create a default user
         user = User.objects.first()
         if not user:
             user = User.objects.create_user(
@@ -37,85 +38,101 @@ class Command(BaseCommand):
         # Sample video URLs for news
         sample_videos = [
             "https://www.w3schools.com/html/mov_bbb.mp4",
-            "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
-            "https://filesamples.com/samples/video/mp4/sample_640x360.mp4",
         ]
 
-        # Sample ad image URLs (can reuse sample_images or customize)
-        sample_ad_images = sample_images[:]  # Copy the list for ads
+        # Backfill news
+        subcategories = list(SubCategory.objects.all())
+        if not subcategories:
+            self.stdout.write(self.style.WARNING("No subcategories found! Skipping news creation."))
+            return
 
-        # Create news articles
-        for subcategory in SubCategory.objects.all():
-            for i in range(5):  # Create 5 news per subcategory
+        for subcategory in subcategories:
+            for _ in range(5):  # 5 news per subcategory
                 title = fake.sentence(nb_words=8)
-
-                # Pick media type
                 media_type = random.choice(media_types)
 
-                # Decide on media file (or None)
                 media_file = None
                 if media_type == "image":
                     media_file = random.choice(sample_images)
                 elif media_type == "video":
                     media_file = random.choice(sample_videos)
+                else:
+                    media_type = "none"
 
                 news = News(
                     title=title,
-                    slug=slugify(title)[:200],  # Ensure slug fits field length
+                    slug=slugify(title)[:190],  # Truncate to avoid max_length issues
                     content="\n\n".join(fake.paragraphs(nb=10)),
-                    media_type=media_type,
                     subcategory=subcategory,
-                    author=user,
                     is_foreign=random.choice([True, False]),
                     is_top_story=random.choice([True, False]),
                     views=random.randint(0, 10000),
                 )
 
-                # Assign media only if not None
+                # Upload media to Cloudinary if exists
                 if media_file:
-                    news.media = media_file
-                else:
-                    news.media = None
+                    try:
+                        if media_type == "image":
+                            result = cloudinary.uploader.upload(media_file, folder="news_media/")
+                        elif media_type == "video":
+                            result = cloudinary.uploader.upload_large(
+                                media_file, resource_type="video", folder="news_media/"
+                            )
+                        news.media = result["public_id"]
+                        news.media_type = media_type
+                    except Exception as e:
+                        self.stdout.write(self.style.WARNING(f"Failed to upload media for {title}: {e}"))
+                        news.media_type = "none"
 
                 # Boost top story views
                 if news.is_top_story:
                     news.views = random.randint(5000, 50000)
 
-                news.save()
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Created news: {title} | {media_type} | views={news.views}"
-                    )
-                )
+                # Save with transaction
+                try:
+                    with transaction.atomic():
+                        news.save()
+                        self.stdout.write(self.style.SUCCESS(
+                            f"Created news: {title} | {news.media_type} | views={news.views}"
+                        ))
+                except (IntegrityError, Exception) as e:
+                    self.stdout.write(self.style.ERROR(f"Failed to save news {title}: {e}"))
 
-        # Create advertisements with dummy images
+        # Backfill advertisements (unchanged for brevity, but similar error handling can be applied)
+        categories = list(Category.objects.all())
+        if not categories:
+            self.stdout.write(self.style.WARNING("No categories found! Skipping ad creation."))
+            return
+
         for position in ad_positions:
-            for i in range(3):
+            for _ in range(3):
                 ad = Advertisement(
                     title=fake.company(),
                     link=fake.url(),
                     position=position,
                     is_active=random.choice([True, False]),
-                    image=random.choice(sample_ad_images),  # Assign dummy image
                 )
 
-                if random.choice([True, False]):
-                    ad.category = random.choice(Category.objects.all())
-                if random.choice([True, False]):
-                    ad.subcategory = random.choice(SubCategory.objects.all())
+                if categories and random.choice([True, False]):
+                    ad.category = random.choice(categories)
+                    subcats = list(ad.category.subcategories.all())
+                    if subcats and random.choice([True, False]):
+                        ad.subcategory = random.choice(subcats)
 
-                ad.save()
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Created ad: {ad.title} for {position} with image {ad.image}"
-                    )
-                )
+                media_file = random.choice(sample_images)
+                try:
+                    result = cloudinary.uploader.upload(media_file, folder="ads/")
+                    ad.image = result["public_id"]
+                except Exception as e:
+                    self.stdout.write(self.style.WARNING(f"Failed to upload ad image: {e}"))
 
-        self.stdout.write(
-            self.style.SUCCESS("✅ Successfully backfilled news and advertisements")
-        )
+                try:
+                    with transaction.atomic():
+                        ad.save()
+                        self.stdout.write(self.style.SUCCESS(
+                            f"Created ad: {ad.title} | position={ad.position}"
+                        ))
+                except (IntegrityError, Exception) as e:
+                    self.stdout.write(self.style.ERROR(f"Failed to save ad {ad.title}: {e}"))
 
-
-from django.db import connection
-
-connection.close()
+        self.stdout.write(self.style.SUCCESS("✅ Successfully backfilled news and advertisements"))

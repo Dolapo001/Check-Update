@@ -189,30 +189,37 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "CheckUpdates.wsgi.application"
 
-# Database configuration
-if DEBUG:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
-else:
-    DATABASES = {
+# # Database configuration
+# if DEBUG:
+#     DATABASES = {
+#         "default": {
+#             "ENGINE": "django.db.backends.sqlite3",
+#             "NAME": BASE_DIR / "db.sqlite3",
+#         }
+#     }
+# else:
+#     DATABASES = {
+#         "default": dj_database_url.parse(
+#             os.getenv("DATABASE_URL"),
+#             conn_max_age=600,
+#             ssl_require=True,
+#         )
+#     }
+#     DATABASES["default"]["OPTIONS"] = {
+#         "application_name": "check-update-vercel",
+#         "sslmode": "require",
+#     }
+DATABASES = {
         "default": dj_database_url.parse(
             os.getenv("DATABASE_URL"),
             conn_max_age=600,
             ssl_require=True,
         )
     }
-    DATABASES["default"]["OPTIONS"] = {
-        "application_name": "check-update-vercel",
-        "sslmode": "require",
-    }
+
 
 CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))
 REDIS_URL = os.getenv("REDIS_URL")
-
 def locmem_cache():
     return {
         "default": {

@@ -61,7 +61,6 @@ class News(BaseModel):
     )  # Allow blank for auto-gen
     content = models.TextField()
     excerpt = models.TextField(blank=True)
-    # Use CloudinaryField for better integration (replaces FileField)
     media = CloudinaryField(
         "media", blank=True, null=True, folder="news_media/"
     )  # Folder auto-creates
@@ -71,7 +70,7 @@ class News(BaseModel):
     subcategory = models.ForeignKey(
         "SubCategory", on_delete=models.CASCADE, related_name="news"
     )  # Assuming SubCategory defined
-    #author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     is_foreign = models.BooleanField(default=False)
     is_top_story = models.BooleanField(default=False)
     views = models.PositiveIntegerField(default=0)
@@ -89,40 +88,47 @@ class News(BaseModel):
         return self.title
 
     def save(self, *args, **kwargs):
-        # Auto-slug with uniqueness (handle pre-save properly)
+        # Auto-slug with uniqueness
         if not self.slug:
-            base_slug = slugify(self.title)
+            base_slug = slugify(self.title)[:190]  # Ensure slug fits max_length
             self.slug = base_slug
             counter = 1
-            while (
-                News.objects.filter(slug=self.slug).exclude(id=self.id).exists()
-            ):  # Exclude self if updating
-                self.slug = f"{base_slug}-{counter}"
+            while News.objects.filter(slug=self.slug).exclude(id=self.id).exists():
+                self.slug = f"{base_slug}-{counter}"[:200]
                 counter += 1
 
-        # Auto-excerpt (your code is fine, but ensure bs4 installed)
+        # Auto-excerpt
         if not self.excerpt and self.content:
-            clean_content = "".join(
-                BeautifulSoup(self.content, "html.parser").findAll(text=True)
-            )
-            self.excerpt = (
-                clean_content[:150] + "..."
-                if len(clean_content) > 150
-                else clean_content
-            )
+            try:
+                clean_content = "".join(
+                    BeautifulSoup(self.content, "html.parser").get_text()
+                )
+                self.excerpt = (
+                    clean_content[:150] + "..." if len(clean_content) > 150 else clean_content
+                )
+            except Exception as e:
+                # Log the error but don't fail the save
+                print(f"Error generating excerpt: {e}")
+                self.excerpt = ""
 
-        # Auto-detect media_type based on file extension (if media uploaded)
+        # Auto-detect media_type
         if self.media:
-            ext = (
-                self.media.name.lower().split(".")[-1] if "." in self.media.name else ""
-            )
-            if ext in ["jpg", "jpeg", "png", "gif", "webp"]:
-                self.media_type = "image"
-            elif ext in ["mp4", "webm", "avi", "mov"]:
-                self.media_type = "video"
-            else:
-                self.media_type = "none"  # Or raise ValidationError if strict
+            try:
+                # CloudinaryField stores public_id, not a file object
+                ext = self.media.split(".")[-1].lower() if "." in self.media else ""
+                if ext in ["jpg", "jpeg", "png", "gif", "webp"]:
+                    self.media_type = "image"
+                elif ext in ["mp4", "webm", "avi", "mov"]:
+                    self.media_type = "video"
+                else:
+                    self.media_type = "none"
+            except Exception as e:
+                print(f"Error detecting media type: {e}")
+                self.media_type = "none"
+        else:
+            self.media_type = "none"
 
+        # Save the object to the database
         super().save(*args, **kwargs)
 
     def increment_views(self):
