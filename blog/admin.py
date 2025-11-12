@@ -21,7 +21,7 @@ class SubCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(News)
 class NewsAdmin(admin.ModelAdmin):
-    list_display = ("title", "subcategory", "author", "is_foreign", "views", "created")
+    list_display = ("title", "subcategory", "is_foreign", "views", "created")
     list_filter = ("subcategory", "is_foreign", "media_type", "created")
     readonly_fields = ("id", "created", "updated", "views")
     search_fields = ("title", "content")

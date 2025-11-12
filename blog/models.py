@@ -71,7 +71,7 @@ class News(BaseModel):
     subcategory = models.ForeignKey(
         "SubCategory", on_delete=models.CASCADE, related_name="news"
     )  # Assuming SubCategory defined
-    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    #author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     is_foreign = models.BooleanField(default=False)
     is_top_story = models.BooleanField(default=False)
     views = models.PositiveIntegerField(default=0)

@@ -25,8 +25,7 @@ load_dotenv()
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1", "yes"]
-
+DEBUG = False
 SECRET_KEY = os.getenv(
     "SECRET_KEY",
 
@@ -270,15 +269,29 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 
+MEDIA_ROOT = BASE_DIR / 'media'  # Explicit for dev; harmless in prod
+
+
+# Your STORAGES block, with minor enhancements
 STORAGES = {
     "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage" if not DEBUG else "django.core.files.storage.FileSystemStorage",
+        "BACKEND": (
+            "cloudinary_storage.storage.MediaCloudinaryStorage"
+            if os.getenv("USE_CLOUDINARY", "False").lower() == "true"  # Env var override for flexibility
+            else "django.core.files.storage.FileSystemStorage"
+        ),
+        "OPTIONS": {  # Optional: Add if needed for custom Cloudinary folders
+            "location": MEDIA_ROOT,  # Only for local backend
+        },
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage" if not DEBUG else "django.contrib.staticfiles.storage.StaticFilesStorage",
+        "BACKEND": (
+            "whitenoise.storage.CompressedManifestStaticFilesStorage"
+            if not DEBUG
+            else "django.contrib.staticfiles.storage.StaticFilesStorage"
+        ),
     },
 }
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

@@ -8,15 +8,11 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
 """
 
 import os
+
+from django.contrib import staticfiles
 from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "CheckUpdates.settings")
 
 application = get_wsgi_application()
 
-# Add this for WhiteNoise in production
-from whitenoise import WhiteNoise
-
-application = WhiteNoise(
-    application, root=os.path.join(os.path.dirname(__file__), "staticfiles")
-)

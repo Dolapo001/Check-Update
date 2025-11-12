@@ -65,7 +65,7 @@ class NewsSearchSerializer(serializers.ModelSerializer):
             "media_url",  # Our new field
             "media_type",
             "subcategory",  # Or nested serializer if needed
-            "author",  # Or nested if UserSerializer exists
+            #"author",  # Or nested if UserSerializer exists
             "is_foreign",
             "is_top_story",
             "views",
