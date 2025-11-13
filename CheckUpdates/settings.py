@@ -31,8 +31,8 @@ SECRET_KEY = os.getenv(
 
 )
 
-ALLOWED_HOSTS = ['https://check-update-sable.vercel.app/', 'https://checkupdate-tau.vercel.app/']
-
+# ALLOWED_HOSTS = ['https://check-update-sable.vercel.app/', 'https://checkupdate-tau.vercel.app/']
+ALLOWED_HOSTS = ['*']
 DJANGO_APPS = [
     "jazzmin",
     "django.contrib.admin",
