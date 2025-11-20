@@ -13,14 +13,19 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 
+import cloudinary
 import dj_database_url
 from corsheaders.defaults import default_headers
 from dotenv import load_dotenv
 import os
+import logging
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -280,23 +285,26 @@ MEDIA_ROOT = BASE_DIR / 'media'  # Explicit for dev; harmless in prod
 
 
 # Your STORAGES block, with minor enhancements
+USE_CLOUDINARY = os.getenv("USE_CLOUDINARY", "False").lower() == "true"
+
+if USE_CLOUDINARY:
+    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+else:
+    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+
 STORAGES = {
     "default": {
-        "BACKEND": (
-            "cloudinary_storage.storage.MediaCloudinaryStorage"
-            if os.getenv("USE_CLOUDINARY", "False").lower() == "true"  # Env var override for flexibility
-            else "django.core.files.storage.FileSystemStorage"
-        ),
-        "OPTIONS": {  # Optional: Add if needed for custom Cloudinary folders
-            "location": MEDIA_ROOT,  # Only for local backend
-        },
+        "BACKEND": DEFAULT_FILE_STORAGE,
+        "OPTIONS": {
+            "location": MEDIA_ROOT,     # Used only when not on Cloudinary
+        }
     },
     "staticfiles": {
         "BACKEND": (
             "whitenoise.storage.CompressedManifestStaticFilesStorage"
             if not DEBUG
             else "django.contrib.staticfiles.storage.StaticFilesStorage"
-        ),
+        )
     },
 }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -386,26 +394,52 @@ if not DEBUG:
 # CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 # ... (rest of Celery config remains commented)
 
+cloudinary_url = os.getenv("CLOUDINARY_URL")
+
+if cloudinary_url:
+    cloudinary.config(
+        cloudinary_url=cloudinary_url,
+        secure=True,
+    )
+else:
+    # Fallback to individual env vars
+    cloudinary.config(
+        cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+        api_key=os.getenv("CLOUDINARY_API_KEY"),
+        api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+        secure=True,
+    )
+
 CLOUDINARY_STORAGE = {
     "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
     "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
     "API_SECRET": os.getenv("CLOUDINARY_API_SECRET"),
 }
 
+# Log (no secrets)
+cfg = cloudinary.config()
+logger.info(
+    "Cloudinary loaded: cloud_name=%s, api_key_present=%s, via_url=%s",
+    cfg.cloud_name, bool(cfg.api_key), bool(cloudinary_url)
+)
+
+# ---------------------------------------------------------
+# SECURITY (PRODUCTION)
+# ---------------------------------------------------------
+
 if not DEBUG:
-    DEBUG_PROPAGATE_EXCEPTIONS = False
     CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ALLOWED_HOSTS]
+    SECURE_SSL_REDIRECT = True
+
+    SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-    SECURE_BROWSER_XSS_FILTER = True
+
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    X_FRAME_OPTIONS = "DENY"
-    CSRF_COOKIE_HTTPONLY = False
-    CSRF_COOKIE_SAMESITE = "Lax"
+    SECURE_BROWSER_XSS_FILTER = True
 
     CONTENT_SECURITY_POLICY = {
         "DIRECTIVES": {
